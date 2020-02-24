@@ -1,0 +1,165 @@
+---
+title: "Tutoral"
+author: "Sungcheol Kim"
+date: "2/15/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rfermiclassifier)
+```
+
+## Generate sample classifer
+
+```{r}
+# generate labels
+y <- generate.labels(N = 10000, rho=0.2)
+
+# generate scores with a specific AUC
+gc <- classifier.gaussian(y, auc=0.9, tol = 0.0001)
+gc <- score.to.classprob(gc)
+gc
+```
+
+```{r}
+cp <- score.to.classprob(gc, N=200, M=250, debug.flag=T)
+```
+
+```{r}
+Mlist <- c(50, 100, 150, 200, 250)
+res <- data.frame(method=c('rank', 'Pxy sample', 'Pxy sum'))
+
+for (M in Mlist) {
+  cp <- score.to.classprob(gc, N=200, M=M, debug.flag=F)
+  t <- c(auc.rank(cp), auc.Pxysample(cp), auc.Pxysum(cp))
+  res <- cbind(res, t)
+}
+
+cp <- score.to.classprob(gc, N=200, M=250, debug.flag=T)
+#print(auc.rank(cp))
+#print(auc.Pxysample(cp))
+#print(auc.Pxysum(cp))
+res
+```
+
+## Calculation AUC
+
+To check $\Delta = <r|1> - <r|0>$, we can calculate $<r|1>$ and $<r|0>$ seperately. 
+
+```{r}
+print(sum(gc$rank*gc$prob)/sum(gc$prob))
+print(sum(gc$rank*(1-gc$prob)/sum(1-gc$prob)))
+```
+
+```{r}
+auc.rank(gc)
+```
+
+Calculate Pxy by sampling two ranks from class 1 and class 2
+
+```{r}
+auc.Pxysample(gc, iter = 10000)
+```
+
+Calculate Pxy using summation over all possible conditions.
+
+```{r}
+auc.Pxysum(gc, debug.flag = T)
+```
+
+```{r}
+library(pROC)
+roc_test <- roc(gc$y, gc$score)
+auc(roc_test)
+```
+
+```{r}
+plot(roc_test)
+```
+
+```{r}
+plot.prediction(gc)
+```
+
+## Confidence Interval
+
+```{r}
+Pxxy.sample(gc, iter=5000, debug.flag=T)
+```
+
+```{r}
+Pxxy.sum(gc)
+```
+
+```{r}
+Pxxy.sum2(gc)
+```
+
+```{r}
+Pxyy.sample(gc, iter=5000, debug.flag=T)
+```
+
+```{r}
+Pxyy.sum(gc)
+```
+
+```{r}
+Pxyy.sum2(gc)
+```
+
+
+```{r}
+var.auc(gc, debug.flag = T)
+```
+
+```{r}
+ci(roc_test)
+```
+
+```{r}
+var_auc_fermi(0.9, 100, 100, debug.flag = T)
+```
+
+```{r}
+auc
+```
+
+```{r}
+var_auc_fermi(0.895, 283, 25374, iter=8000, debug.flag = T)
+```
+
+```{r}
+var_auc_fermi(0.942, 780, 67228, iter=10000, debug.flag = T)
+```
+
+```{r}
+count <- 0
+for (i in 1:10) {
+  for (j in 1:10) {
+    for (k in 1:10) {
+      if (i < min(c(j, k))) {
+        print(sprintf("(%d, %d, %d)", i, j, k))
+        count <- count + 1
+      }
+    }
+  }
+}
+print(count)
+```
+
+```{r}
+count <- 0
+m2 <- matrix(100, 10, 10)
+
+for (i in 1:10) {
+  idx <- (m2 > 0)
+  idx[, 1:i] <- FALSE
+  idx[1:i, ] <- FALSE
+  diag(idx) <- FALSE
+  
+  print(idx)
+  count <- count + sum(idx)
+}
+print(count)
+```

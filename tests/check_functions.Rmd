@@ -1,0 +1,59 @@
+---
+title: "check_functions"
+author: "Sungcheol Kim"
+date: "1/22/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rfermiclassifier)
+library(ggplot2)
+```
+
+## lambda function
+
+```{r}
+auclist <- (0:49)*0.01 + 0.5
+rholist <- (1:19)*0.05
+N <- 1000
+
+res <- data.frame()
+
+for (a in auclist) {
+  for (r in rholist) {
+    temp <- lambda.auc(a, N=N, rho=r)
+    temp$auc <- a
+    temp$rho <- r
+    res <- rbind(res, temp)
+  }
+}
+
+res
+```
+
+```{r}
+ggplot(data=res) + geom_point(aes(x=auc, y=l1, color=rho))
+ggsave('lambda_auc_l1.pdf', width=6)
+```
+
+```{r}
+ggplot(data=res) + geom_point(aes(x=auc, y=l2, color=rho))
+ggsave('lambda_auc_l2.pdf', width=6)
+```
+
+```{r}
+ggplot(data=res) + geom_point(aes(x=auc, y=rs, color=rho))
+ggsave('lambda_auc_rs.pdf', width=6)
+```
+
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
