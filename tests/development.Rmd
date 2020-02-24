@@ -1,0 +1,194 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(purrr)
+library(rfermiclassifier)
+```
+
+```{r}
+y <- generate.class(N=10000, rho=0.5)
+table(y)
+```
+
+```{r}
+a <- predict.gaussian(y, auc=0.8)
+(b <- auc(a, full=TRUE))
+plot.prediction(a)
+```
+
+```{r}
+lambda.auc(b$auc, N=b$N, rho=b$rho)
+```
+
+```{r}
+lambda.auc(b)
+```
+
+```{r}
+generate_auclist <- function(initial, final, N) {
+  delta <- (final - initial)/N
+  initial + (1:N)*delta - delta
+}
+
+auclist1 <- generate_auclist(0.6, 0.7, 10)
+auclist2 <- generate_auclist(0.7, 0.8, 10)
+auclist3 <- generate_auclist(0.8, 0.9, 10)
+```
+
+```{r}
+rho0 <- 0.75
+Mlist <- c(10, 15, 20, 25, 30, 35, 40,45, 50)
+res1 <- data.frame()
+
+for (m in Mlist) {
+  auclist <- generate_auclist(0.5, 0.6, m)
+  glist <- generate.ensemble(auclist, N=1000, rho=rho0)
+  tmp <- unlist(map(glist, auc))
+  a <- data.frame(M=m, aucSummap=tmp['summap'], aucMin=min(tmp[1:length(auclist)]), 
+                  aucMean=mean(tmp[1:length(auclist)]), aucMax=max(tmp[1:length(auclist)]))
+  res1 <- rbind(res1, a)
+}
+
+res1$range <- "0.5-0.6"
+res1$rho <- rho0
+#lll <- ensemble.gaussian(glist, view=T)
+
+res2 <- data.frame()
+
+for (m in Mlist) {
+  auclist <- generate_auclist(0.6, 0.7, m)
+  glist <- generate.ensemble(auclist, N=1000, rho=rho0)
+  tmp <- unlist(map(glist, auc))
+  a <- data.frame(M=m, aucSummap=tmp['summap'], aucMin=min(tmp[1:length(auclist)]), 
+                  aucMean=mean(tmp[1:length(auclist)]), aucMax=max(tmp[1:length(auclist)]))
+  res2 <- rbind(res2, a)
+}
+
+res2$range <- "0.6-0.7"
+res2$rho <- rho0
+
+res3 <- data.frame()
+
+for (m in Mlist) {
+  auclist <- generate_auclist(0.7, 0.8, m)
+  glist <- generate.ensemble(auclist, N=1000, rho=rho0)
+  tmp <- unlist(map(glist, auc))
+  a <- data.frame(M=m, aucSummap=tmp['summap'], aucMin=min(tmp[1:length(auclist)]), 
+                  aucMean=mean(tmp[1:length(auclist)]), aucMax=max(tmp[1:length(auclist)]))
+  res3 <- rbind(res3, a)
+}
+
+res3$range <- "0.7-0.8"
+res3$rho <- rho0
+
+res <- rbind(res1, res2, res3)
+```
+
+```{r}
+library(ggplot2)
+
+ggplot(data=res) + geom_line(aes(x=M, y=aucSummap, col=range)) + 
+  geom_point(aes(x=M, y=aucMean, col=range)) + geom_point(aes(x=M, y=aucMin, col=range)) +
+  geom_point(aes(x=M, y=aucMax, col=range )) + ylim(0.5, 1.0) + ylab('AUC_SUMMA+')
+ggsave('rho_0.75_sim_m.pdf')
+```
+
+```{r}
+res1
+```
+
+```{r}
+glist <- generate.ensemble(auclist1, N=100, rho=0.48)
+```
+
+```{r}
+ensemble.gaussian(glist, view=T)
+```
+
+```{r}
+library(rfermiclassifier)
+
+testsumma <- function(auc0, auc1, method, rho, M) {
+  auclist <- generate.auclist(auc0, auc1, M)
+  summap <- generate.ensemble(auclist, N=1000, rho=rho, method=method)
+  df <- confMatrix(summap$summap)
+  df$method <- paste0('summa', method)
+  df$aucrange <- paste0(auc0, '-', auc1)
+  df$rho <- rho
+  df$M <- M
+  
+  df
+}
+
+testsumma(0.5, 0.6, '', 0.5, 10)
+```
+
+```{r}
+res <- data.frame()
+for (rho in c(0.25, 0.5, 0.75)) {
+  for (j in (0:3)) {
+    for (m in (1:10)*5) {
+      for (i in 1:10) {
+        a <- testsumma(0.5+j*0.1, 0.6+j*0.1, '+', rho, m)
+        b <- testsumma(0.5+j*0.1, 0.6+j*0.1, '', rho, m)
+        res <- rbind(res, a, b)
+      }
+    }
+  }
+}
+
+res
+```
+
+```{r}
+ggplot(data=res[res$rho == 0.5, ], aes(M, auc, color=method)) + geom_point() + 
+  geom_smooth(method = "loess") + facet_wrap(~aucrange)
+ggsave(filename='sim_MvsAuc_r5.pdf', width=8)
+```
+
+```{r}
+ggplot(data=res[res$rho == 0.75, ], aes(M, specificity, color=method)) + geom_point() + 
+  geom_smooth(method = "loess") + facet_wrap(~aucrange)
+ggsave('sim_MvsSpec_r75.pdf', width=8)
+```
+
+```{r}
+ggplot(data=res[res$rho == 0.75, ], aes(M, baccuracy, color=method)) + geom_point() + 
+  geom_smooth(method = "loess") + facet_wrap(~aucrange)
+ggsave('sim_Mvsbacc_r75.pdf', width=8)
+```
+
+
+```{r}
+ggplot(data=res) + 
+  geom_boxplot(aes(x=aucrange, y=auc, color=method)) +
+  facet_wrap(~rho, scales='free')
+ggsave('sim_method_comp.pdf', width=8)
+```
+
+```{r}
+ggplot(data=res[res$method == 'summa', ], aes(M, auc, color=aucrange)) + geom_point() + 
+  geom_smooth(method = "loess") + facet_wrap(~rho) + ylim(0.5, 1)
+ggsave('sim_summa.pdf', width=8)
+```
+
+```{r}
+getbauc <- function(x) {
+  if (x == '0.5-0.6') 0.6
+  else if (x == '0.6-0.7') 0.7
+  else if (x == '0.7-0.8') 0.8
+  else 0.9
+}
+
+res$bauc <- unlist(lapply(res$aucrange, FUN=getbauc))
+res$gain <- 100*(res$auc - res$bauc)/res$bauc
+```
+
+```{r}
+ggplot(data=res[res$method == 'summa+', ], aes(M, gain, color=aucrange)) + geom_point() + 
+  geom_smooth(method = "loess") + facet_wrap(~rho) + ylab('Gain (%)') + xlab('# of base classifiers')
+ggsave('sim_summa+_gain.pdf', width=8)
+```
