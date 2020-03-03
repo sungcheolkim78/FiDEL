@@ -1,0 +1,26 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1582571480540.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1460316996",
+    "id" : "4C388791",
+    "lastKnownWriteTime" : 1583192308,
+    "last_content_update" : 1583192308806,
+    "path" : "~/CoreData/git_repos/FDclassifieR/tests/Tutorial.Rmd",
+    "project_path" : "tests/Tutorial.Rmd",
+    "properties" : {
+        "cursorPosition" : "135,33",
+        "last_setup_crc32" : "3647038988cd3a58",
+        "scrollLine" : "124"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

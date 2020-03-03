@@ -167,7 +167,7 @@ Pxxy.sum2 <- function(classMatrix, debug.flag=FALSE) {
 }
 
 Pxyy.sum <- function(classMatrix, debug.flag=FALSE) {
-  check <- c("score", "y", "rank", "prob") %in% names(classMatrix)
+  check <- c("rank", "prob") %in% names(classMatrix)
   stopifnot(all(check))
 
   N <- length(classMatrix$prob)
@@ -188,7 +188,7 @@ Pxyy.sum <- function(classMatrix, debug.flag=FALSE) {
 }
 
 Pxyy.sum2 <- function(classMatrix, debug.flag=FALSE) {
-  check <- c("score", "y", "rank", "prob") %in% names(classMatrix)
+  check <- c("rank", "prob") %in% names(classMatrix)
   stopifnot(all(check))
 
   res <- 0
