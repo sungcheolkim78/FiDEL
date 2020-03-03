@@ -6,6 +6,7 @@
 # version 1.0
 
 library(purrr)
+library(data.table)
 
 # generate labels - class1 and class2
 generate.labels <- function(N=100, rho=0.5) {
@@ -31,6 +32,7 @@ classifier.gaussian <- function(y, auc=0.8, tol=0.0001, max_iter=2000) {
   # initial mu2 value
   mu <- 2 * erf.inv(2*auc - 1)
 
+  # repeat until the measured AUC become the target AUC
   simulated_auc = 0.5
   while((abs(simulated_auc - auc) > tol) & (count < max_iter)) {
     score1 <- rnorm(N1, mean=0, sd=1)        # class 2 score (lower)
@@ -41,7 +43,7 @@ classifier.gaussian <- function(y, auc=0.8, tol=0.0001, max_iter=2000) {
     score[y == class1] <- score1
     score[y == class2] <- score2
 
-    res <- data.frame(score=score, y=y)
+    res <- data.table(score=score, y=y)
 
     simulated_auc <- auc.rank(res, class1=class1)
     #simulated_auc <- auc(roc(res$y, res$score))
@@ -54,11 +56,13 @@ classifier.gaussian <- function(y, auc=0.8, tol=0.0001, max_iter=2000) {
   return(res)
 }
 
+# simple code to generate AUC list between initial and final values
 generate.auclist <- function(initial, final, N) {
   delta <- (final - initial)/N
   initial + (1:N)*delta - delta
 }
 
+# generate classifer based on SUMMA and SUMMA+ method
 generate.ensemble <- function(auclist, N=100, rho=0.5, method='+') {
   y <- generate.class(N=N, rho=rho)
   glist <- purrr::map(auclist, function(x) predict.gaussian(y, x))
@@ -82,5 +86,6 @@ testsumma <- function(auc0, auc1, method, rho, M) {
   df
 }
 
+# tool functions
 erf <- function(x) 2 * pnorm(x * sqrt(2)) - 1
 erf.inv <- function(x) qnorm((x + 1)/2)/sqrt(2)

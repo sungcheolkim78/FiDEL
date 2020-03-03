@@ -1,0 +1,5 @@
+"0","df <- data.table()"
+"0","df$x <- cp$rank"
+"0","df$y <- cp$prob"
+"0","l <- lambda.auc(0.9)"
+"0","k <- nls(y ~ fermi(x, l1, l2), data=df, start = list(l1=l['l1'], l2=l['l2']))"
