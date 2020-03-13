@@ -1,8 +1,0 @@
-"0","# generate labels"
-"0","y <- generate.labels(N = 10000, rho=0.5)"
-"0",""
-"0","# generate scores with a specific AUC from gaussian distribution"
-"0","gc <- classifier.gaussian(y, auc=0.9, tol = 0.0001)"
-"2","Final AUC: 0.9000738 (iter: 3) mu2: 1.81238760487365
-"
-"0","gc <- score.to.classprob(gc, debug.flag = T)"

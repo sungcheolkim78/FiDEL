@@ -5,164 +5,29 @@
 #
 # version 1.0
 
-#library(pROC)
 library(data.table)
 library(ggpubr)
 
-# There are 3 methods for AUC calculation
-# 1) using class probability at rank
-# 2) using area under ROC curve using trapezoid rule
-# 3) using combinatorial calculation of Pxy
+# Using class proability at given rank
+auc.rank <- function(scores, y, class1=NULL) {
+  # score and label
 
-score.to.classprob <- function(classifier, class1=NULL, N=0, M=100, debug.flag=FALSE) {
-  check <- c('score', 'y') %in% names(classifier)
-  stopifnot(all(check))
-
-  N.data <- length(classifier$y)
-  if (N == 0) { N <- N.data}
-  stopifnot(N.data >= N)
-
-  # find class 1 and 2 with alphabetical order
-  labels <- levels(classifier$y)
-  stopifnot (length(labels) == 2)    # check binary classifier
-
-  res <- matrix(0, nrow=N, ncol=M)
-
-  # check class names - class 1 should be the name of lower scores
+  stopifnot(length(scores) == length(y))
+  labels <- levels(y)
   if (is.null(class1)) {
     class1 <- labels[[1]]
-    score.class1 <- mean(classifier$score[classifier$y == class1])
-    score.class2 <- mean(classifier$score[classifier$y != class1])
-    if (score.class2 < score.class1) {
-      class1 <- labels[[2]]
-    }
-  }
-
-  # without sampling
-  if (N == N.data) {
-    classifier$prob <- as.double(classifier$y == class1)
-    classifier$rank <- frankv(classifier$score, order=-1L)        # add rank
-
-    if (debug.flag) {
-      plot(classifier$rank, classifier$prob)
-    }
-    return (classifier)
-  } else {
-    # with sampling
-    auclist <- numeric(0)
-    rho <- sum(classifier$y == class1)/N.data
-    N1 <- floor(rho*N)
-    N2 <- N - N1
-    totalidx <- 1:N.data
-    c1_idx <- totalidx[classifier$y == class1]
-    c2_idx <- totalidx[classifier$y != class1]
-
-    for (i in 1:M) {
-      # keep rho ratio or not
-
-      idx1 <- sample(c1_idx, N1)
-      idx2 <- sample(c2_idx, N2)
-      temp <- classifier[c(idx1, idx2), ]
-      temp <- temp[order(temp$score, decreasing = FALSE), ]
-
-      auclist <- c(auclist, auc.rank(temp$score, y=temp$y))
-
-      res[, i] <- as.double(temp$y == class1)
-    }
-    prob <- rowMeans(res)
-    rank <- 1:N
-
-    if (debug.flag) {
-      df <- data.table(x=rank, y=prob)
-      l0 <- lambda.auc(mean(auclist))
-      l <- nls(y ~ fermi(x, l1, l2), data=df, start = list(l1=l0['l1'], l2=l0['l2']))
-      l1 <- coef(l)
-
-      g <- ggplot(data=df) + geom_point(aes(x=rank, y=prob)) +
-        geom_line(aes(x=rank, y=predict(l)), linetype="dashed", color="red") +
-        theme_classic() + ylab('P(1|r)') + xlab('Rank') +
-        annotate("text", label=sprintf("Mean AUC: %.4f\nStd. of AUC: %.4f", mean(auclist), sd(auclist)), x=0, y=0, hjust=0, vjust=0) +
-        annotate("text", label=sprintf("l1: %.4f\nl2: %.4f",l1[[1]], l1[[2]]), x=mean(rank), y=0.4, vjust=1, hjust=1) +
-        annotate("text", label=sprintf("N0: %d\nN: %d\nM: %d", N.data, N, M), x=max(rank), y=1.0, hjust=1, vjust=1)
-
-      ggsave(paste0("N", N, "M", M, ".pdf"), width=7, height=4)
-      print(g)
-    }
-    #print(auclist)
-    print(paste0('Mean AUC: ', mean(auclist)))
-    print(paste0('Std of AUC: ', sd(auclist)))
-
-    return (data.table(rank=rank, prob=prob))
-  }
-}
-
-# Using class proability at given rank
-auc.rank <- function(score, y=NULL, class1=NULL, full=FALSE) {
-  # 1) input data frame : score and label (y)
-  # 2) score and label
-  # 3) rank and prob
-
-  if (is.null(y)) {
-    mat <- score
-  } else {
-    mat <- data.table(score=score, y=y)
-  }
-
-  check <- c('rank', 'prob') %in% names(mat)
-  if (!all(check)) {
-    # add rank and probability column
-    mat <- score.to.classprob(mat, class1=class1)
   }
 
   # calculate class 1 and class 2
-  N <- length(mat$rank)
-  N1 <- sum(mat$prob)
+  N <- length(scores)
+  N1 <- sum(y == class1)
   N2 <- N - N1
-  rho <- N1/N
+  mat <- data.table(scores=scores, y=y)
+  mat$rank <- frankv(scores, order=-1)
 
-  res <- abs(sum(mat$rank*mat$prob)/N1 - sum(mat$rank*(1-mat$prob))/N2)/N + 0.5
-  if (full) {
-    return(data.table(auc=res, N=N, rho=rho))
-  } else {
-    return(res)
-  }
+  res <- abs(sum(mat$rank[y == class1])/N1 - sum(mat$rank[y != class1])/N2)/N + 0.5
+  return(res)
 }
-
-confMatrix <- function(score, threshold=0.0, first = TRUE) {
-  check <- c('score', 'y') %in% names(score)
-  stopifnot(all(check))
-
-  lbs <- levels(score$y)
-  if (first) {
-    class1 <- lbs[[1]]
-    class2 <- lbs[[2]]
-  } else {
-    class1 <- lbs[[2]]
-    class2 <- lbs[[1]]
-  }
-  score$pred <- score$score < threshold
-  A <- sum(score$pred == TRUE & score$y == class1)
-  B <- sum(score$pred == TRUE & score$y == class2)
-  C <- sum(score$pred == FALSE & score$y == class1)
-  D <- sum(score$pred == FALSE & score$y == class2)
-
-  if (FALSE) {
-    message(paste0(sum(score$pred == TRUE & score$y == class1), " = A"))
-    message(paste0(sum(score$pred == TRUE & score$y == class2), " = B"))
-    message(paste0(sum(score$pred == FALSE & score$y == class1), " = C"))
-    message(paste0(sum(score$pred == FALSE & score$y == class2), " = D"))
-  }
-
-  sens <- A/(A+C)
-  spec <- D/(B+D)
-  prec <- A/(A+B)
-  rec <- A/(A+C)
-  auc <- auc.rank(score)
-  bacc <- (sens + spec)/2
-
-  return(data.table(sensitivity=sens, specificity=spec, precision=prec, recall=rec, baccuracy=bacc, auc=auc))
-}
-
 
 # characteristics based on the rank threshold
 cal.fromRank <- function(scores) {
@@ -181,15 +46,23 @@ cal.fromRank <- function(scores) {
   return(scores)
 }
 
-
 # calculate lambda1,2 from auc, rho
-lambda.auc <- function(auc, N=100, rho=0.5, full=FALSE) {
-  costFunc <- function(l, rho, auroc, N) {
-    r <- 1:N
-    sum1 <- sum(1/(1+exp(l[2]*r - l[1])))/N
-    sum2 <- sum(r/(1+exp(l[2]*r - l[1])))/(N*N*rho)
+lambda.auc <- function(auc, N=100.0, rho=0.5, full=FALSE) {
+  costFunc1 <- function(l, rho, rs, N) {
+    r <- seq(1, N, by = 1.0)
+    sum1 <- sum(1/(1+exp(l[2]*r - l[1])))
+    sum2 <- sum(r/(N+N*exp(l[2]*r - l[1])))
 
-    (rho - sum1)^2 + (1 + .5/N - rho/2 - auroc*(1-rho) - sum2)^2
+    (N*rho - sum1)^2 + (rs/N - sum2)^2
+  }
+
+  costFunc2 <- function(l, rho, rs, N) {
+    r <- seq(1, N, by = 1.0)
+    sum1 <- sum(1/(1+exp(-l[2]*r + l[1])))
+    sum2 <- sum(r/(N+N*exp(-l[2]*r + l[1])))
+    rs_m <- N*(1-rho)*(N*(1-rho)+1)/2
+
+    (N*(1-rho) - sum1)^2 + (0.5*(N+1) - rs/N - sum2)^2
   }
 
   # check dataframe
@@ -201,24 +74,33 @@ lambda.auc <- function(auc, N=100, rho=0.5, full=FALSE) {
   } else {
     auroc <- auc
   }
+  N <- as.numeric(N)
+  rs <- 0.5*N*rho*(N+1) - N*N*rho*(1-rho)*(auroc - 0.5)
 
   l <- lambda.appr(auroc, N=N, rho=rho)
-  initial <- c(-l[['l1']], l[['l2']])
+  #print(l)
+  initial <- c(l[['l1']], l[['l2']])
 
-  temp <- optim(initial, costFunc, rho=rho, auroc=auroc, N=N)
-  if (temp$convergence > 1) message("not converged")
+  temp <- optim(initial, costFunc1, rho=rho, rs=rs, N=N, control=list(maxit=8000, reltol=1e-12))
+  if (temp$value > 1e-4) {
+    temp <- optim(initial, costFunc2, rho=rho, rs=rs, N=N, control=list(maxit=8000, reltol=1e-12))
+  }
+
+  #print(temp)
+  if (temp$value > 1e-5) message(sprintf("not converged - auc: %.4f, rho: %.4f", auroc, rho))
   l1 <- -temp$par[1]
   l2 <- temp$par[2]
   rs <- 1/l2 * log((1 - rho)/rho) - l1/l2
 
   if (full)
-    return(c(l1 = l1, l2 = l2, rs = rs, l10 = initial[[1]], l20 = initial[[2]]))
+    return(data.table(l1 = l1, l2 = l2, rs = rs, l10 = initial[[1]], l20 = initial[[2]], auc=auroc, rho=rho))
   else
     return(c(l1 = l1, l2 = l2, rs = rs))
 }
 
 # calculate lambda1, lambda2 from auc, rho (version 2)
-lambda.appr <- function(auc, N=N, rho=rho) {
+lambda.appr <- function(auc, N=100.0, rho=0.5) {
+  N <- as.numeric(N)
   l1_low <- log(1/rho - 1) - 12*N*(auc-0.5)/(N*N-1)*((N+1+N*rho)*0.5 - N*rho*auc)
   l2_low <- 12*N*(auc-0.5)/(N*N-1)
 
@@ -234,104 +116,98 @@ lambda.appr <- function(auc, N=N, rho=rho) {
   return(c(l1low=l1_low, l2low=l2_low, l1high=l1_high, l2high=l2_high, l1=l1, l2=l2, rs=rs))
 }
 
-# plot histogram of score distribution
-plot.scores <- function(scores) {
-  check <- c("score", "y") %in% names(scores)
-  stopifnot(all(check))
+# calculate beta, mu using normalized r
+get_fermi <- function(auc, rho, resol=0.0001) {
+  # cost function - normalized version
+  # mu' = mu/N
+  # beta' = beta*N
+  # r*' = r*/N
+  cost <- function(bm, auc, rho, resol) {
+    rprime <- seq(0, 1, by=resol)
+    sum1 <- sum(resol/(1+exp(bm[1]*(rprime-bm[2]))))
+    sum2 <- sum(resol*rprime/(1+exp(bm[1]*(rprime-bm[2]))))
 
-  ggplot(data=scores, aes(x=score, color=y)) + geom_histogram(alpha=0.5, position="identity", bins=50) +
-    theme_classic() +
-    theme(legend.position="top")
+    (rho - sum1)^2 + (0.5*rho - rho*(1-rho)*(auc-0.5) - sum2)^2
+  }
+
+  # auc should be in (0.5, 1.0)
+  stopifnot(auc > 0.5)
+  stopifnot(auc <= 1.0)
+
+  # calculate intital beta' and mu'
+  l <- lambda.appr(auc, N=1000, rho=rho)
+
+  # optimize cost function
+  initial <- c(l[['l2']]*1000, -l[['l1']]/(1000*l[['l2']]))
+  temp <- optim(initial, cost, auc=auc, rho=rho, resol=resol, control=list(maxit=8000, reltol=1e-12))
+
+  rs <- 1/temp$par[1] * log((1 - rho)/rho) + temp$par[2]
+  return(c(betap=temp$par[1], mup=temp$par[2], rsp=rs))
 }
 
-plot.curves <- function(scores) {
-  check <- c("bac", "prec", "tpr", "fpr") %in% names(scores)
-  stopifnot(all(check))
+# plot histogram of score distribution
+plot.scores <- function(scores, y) {
+  y.flag <- TRUE
+  if (missing(y)) {
+    y <- rep('class1', length(scores))
+    attr(y, 'class1') <- 'class1'
+    attr(y, 'class2') <- 'class2'
+    y.flag <- FALSE
+  } else {
+    stopifnot(all(c('factor', 'label') %in% class(y)))
+  }
+  df <- data.table(score=scores, y=y)
 
-  idx <- which.max(scores$bac)
-  auc_bac <- 2*sum(scores$bac)/length(scores$bac) - 0.5
-  auc_rank <- auc.rank(scores)
-  N <- length(scores$prob)
-  N1 <- sum(scores$prob)
-  N2 <- N - N1
+  score1 <- scores[y == attr(y, 'class1')]
+  score2 <- scores[y == attr(y, 'class2')]
 
-  g1 <- ggplot(data=scores, aes(x=fpr, y=tpr)) + geom_point(alpha=0.7) +
-    xlab("FPR") + ylab("TPR") + theme_classic() +
-    geom_abline(intercept = 0, slope = 1, linetype="dashed") +
-    annotate("point", x=scores$fpr[idx], y=scores$tpr[idx], color = "red", shape=8, size=3) +
-    annotate("text", label=sprintf("AUC (rank): %.4f", auc_rank), x=1, y=0, hjust=1)
-  g2 <- ggplot(data=scores, aes(x=tpr, y=prec)) + geom_point(alpha=0.7) +
-    xlab("TPR") + ylab("Prec") + ylim(c(0,1)) + theme_classic() +
-    geom_hline(yintercept = sum(scores$prob)/length(scores$prob), linetype="dashed") +
-    annotate("point", x=scores$tpr[idx], y=scores$prec[idx], color = "red", shape=8, size=3) +
-    annotate("text", x=1, y=0, hjust=1, vjust=0,
-             label=sprintf("N: %.0f\nN1: %.0f\nN2: %.0f", N, N1, N2))
-  g3 <- ggplot(data=scores, aes(x=rank, y=bac)) + geom_point(alpha=0.7) +
-    xlab("Rank") + ylab("Balanced Accuracy") + ylim(c(0.5, 1)) + theme_classic() +
-    geom_vline(xintercept = scores$rank[idx], linetype="dashed") +
-    annotate("text", label=sprintf("AUC (bac): %.4f", auc_bac), x=0, y=1, hjust=0) +
-    annotate("text", label=sprintf("thr.: %i", idx), x=scores$rank[idx], y=0.5)
+  g <- ggplot(data=df, aes(x=score, color=y)) + geom_histogram(alpha=0.5, position="identity", bins=50) +
+    theme_classic() +
+    theme(legend.position="top") +
+    annotate("text", label=sprintf("mu1: %.4f", mean(score1)), x=mean(score1), y=0, vjust=0) +
+    annotate("text", label=sprintf("N1: %d", length(score1)), x=mean(score1)-4*sd(score1), y=100, vjust=0)
+  if (y.flag) {
+    g <- g +
+      annotate("text", label=sprintf("mu2: %.4f", mean(score2)), x=mean(score2), y=0, vjust=0) +
+      annotate("text", label=sprintf("N2: %d", length(score2)), x=mean(score2)+4*sd(score2), y=100, vjust=0)
+  }
 
-  g <- ggarrange(g1, g2, g3, labels=c("A", "B", "C"), ncol=3  , nrow=1)
-  ggsave("temp.pdf", width=12, height=4, dpi=300)
+  ggsave('score.pdf', width=8, height=6, dpi=300)
   return (g)
 }
 
-ensemble.gaussian <- function(predictlist, alpha = 1.0, method='+', view = FALSE) {
-  M <- length(predictlist)
-  N <- length(predictlist[[1]]$score)
-  y <- predictlist[[1]]$y
+ensemble.fermi <- function(predictions, y, alpha = 1.0, method='+', debug.flag = FALSE) {
+  M <- ncol(predictions)
+  N <- nrow(predictions)
 
   res <- matrix(0, nrow=N, ncol=M)
   fd <- matrix(0, nrow=M, ncol=4)
 
   for(m in 1:M) {
-    fd[m, 1] <- auc.rank(predictlist[[m]])
-    l <- lambda.auc(auc.rank(predictlist[[m]], full=TRUE))
-    fd[m, 2] <- l[['l1']]
-    fd[m, 3] <- l[['l2']]
-    fd[m, 4] <- l[['rs']]
+    fd[m, 1] <- auc.rank(predictions[,m], y)
+    #l <- lambda.auc(fd[m, 1], N=N, rho = attr(y, 'rho'))
+    b <- get_fermi(fd[m, 1], attr(y, 'rho'))
+    #fd[m, 2] <- l[['l1']]
+    #fd[m, 3] <- l[['l2']]
+    #fd[m, 4] <- l[['rs']]
+    fd[m, 2] <- -b[[1]]*b[[2]]
+    fd[m, 3] <- b[[1]]/N
+    fd[m, 4] <- b[[3]]*N
 
-    res[ , m] <- predictlist[[m]][['rank']]
+    res[ , m] <- rank(predictions[,m])
     if (method == '+')
       res[ , m] <- l[['l2']]^alpha *(l[['rs']] - res[, m])
     else
       res[ , m] <- 12*N*(fd[m, 1] - 0.5)/(N*N - 1) *((N+1.)/2.- res[, m])
   }
 
-  if(view) {
-    temp <- as.data.frame(res)
+  if(debug.flag) {
+    #temp <- as.data.frame(res)
     #temp[['summa+']] <- rowMeans(res)
     #plot(temp)
-    print(cor(temp, method = "spearman"))
+    #print(cor(temp, method = "spearman"))
     print(fd)
   }
 
-  res <- data.frame(score=-rowMeans(res), y=y)
-  res$rank <- rank(res$score)
-  return(res)
-}
-
-fermi <- function(r, l1, l2) {
-  return (1/(1+exp(l2*r+l1)))
-}
-
-sigma.rank <- function(rankprob, debug.flag = FALSE) {
-  check <- c("rank", "prob") %in% names(rankprob)
-  stopifnot(all(check))
-
-  N1 <- sum(rankprob$prob)
-  N2 <- length(rankprob$prob) - N1
-  rmean <- sum(rankprob$rank * rankprob$prob)/N1
-  r2mean <- sum(rankprob$rank * rankprob$rank * rankprob$prob)/N1
-
-  if (debug.flag) {
-    print(paste0('N: ', length(rankprob$prob)))
-    print(paste0('N1: ', sum(rankprob$prob)))
-    print(paste0('variance <r|1>: ', r2mean - rmean*rmean))
-    print(paste0('sigma <r|1>: ', sqrt(r2mean - rmean*rmean)))
-    print(paste0('sigma AUC: ', sqrt(r2mean - rmean*rmean)/N2))
-  }
-
-  return (sqrt(r2mean - rmean*rmean))
+  return(rowSums(res))
 }

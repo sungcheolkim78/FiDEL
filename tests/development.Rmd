@@ -5,37 +5,50 @@ output: html_notebook
 
 ```{r}
 library(purrr)
-library(rfermiclassifier)
+library(FDclassifieR)
 ```
 
 ```{r}
-y <- generate.class(N=10000, rho=0.5)
+y <- generate.labels(N=10000, rho=0.3)
 table(y)
 ```
 
 ```{r}
-a <- predict.gaussian(y, auc=0.8)
-(b <- auc(a, full=TRUE))
-plot.prediction(a)
+gs <- generate.scores.gaussian(y, auc=0.8)
+plot.scores(gs)
 ```
 
 ```{r}
-lambda.auc(b$auc, N=b$N, rho=b$rho)
+lambda.auc(auc.rank(gs, y), N=attr(y, 'N'), rho=attr(y, 'rho'))
 ```
 
 ```{r}
-lambda.auc(b)
+data_g <- create_predictions(n=1000, m=10, p=0.3)
 ```
 
 ```{r}
-generate_auclist <- function(initial, final, N) {
-  delta <- (final - initial)/N
-  initial + (1:N)*delta - delta
-}
+estimated_rank <- ensemble.fermi(data_g$predictions, data_g$actual_labels, debug.flag=T)
+```
 
-auclist1 <- generate_auclist(0.6, 0.7, 10)
-auclist2 <- generate_auclist(0.7, 0.8, 10)
-auclist3 <- generate_auclist(0.8, 0.9, 10)
+```{r}
+hist(estimated_rank)
+```
+
+```{r}
+fde1 <- fdensemble(data_g$predictions)
+fde1 <- calculate_performance(fde1, data_g$actual_labels)
+```
+
+```{r}
+hist(fde1@estimated_rank)
+```
+
+
+
+```{r}
+auclist1 <- generate.auclist(0.6, 0.7, 10)
+auclist2 <- generate.auclist(0.7, 0.8, 10)
+auclist3 <- generate.auclist(0.8, 0.9, 10)
 ```
 
 ```{r}
