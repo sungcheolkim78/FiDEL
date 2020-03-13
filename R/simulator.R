@@ -9,24 +9,40 @@ library(purrr)
 library(data.table)
 
 # generate labels - class1 and class2
-generate.labels <- function(N=100, rho=0.5) {
+create.labels <- function(N=100, rho=0.5) {
   res <- rep('Class2', N)
   idx <- sample(N, N*rho)
   res[idx] <- 'Class1'
-  as.factor(res)
+  res <- as.factor(res)
+  attr(res, 'class1') <- 'Class1'
+  attr(res, 'class2') <- 'Class2'
+  attr(res, 'N') <- N
+  attr(res, 'rho') <- rho
+  attr(res, 'class') <- c('factor', 'label')
+
+  return(res)
 }
 
 # binary classifier using Gaussian score distribution
-classifier.gaussian <- function(y, auc=0.8, tol=0.0001, max_iter=2000) {
+create.scores.gaussian <- function(y, auc=0.8, tol=0.0001, max_iter=2000) {
   # check key numbers
-  lbs <- levels(y)
-  stopifnot(length(lbs) == 2)
-  class1 <- lbs[[1]]
-  class2 <- lbs[[2]]
 
-  N <- length(y)
-  N1 <- sum(y == class1)
-  N2 <- N - N1
+  if (any('label' == class(y))) {
+    N1 <- floor(attr(y, 'N') * attr(y, 'rho'))
+    N2 <- attr(y, 'N') - N1
+    N <- N1 + N2
+    class1 <- attr(y, 'class1')
+    class2 <- attr(y, 'class2')
+  } else {
+    lbs <- levels(y)
+    stopifnot(length(lbs) == 2)
+    class1 <- lbs[[1]]
+    class2 <- lbs[[2]]
+
+    N <- length(y)
+    N1 <- sum(y == class1)
+    N2 <- N - N1
+  }
 
   count <- 1
   # initial mu2 value
@@ -43,49 +59,41 @@ classifier.gaussian <- function(y, auc=0.8, tol=0.0001, max_iter=2000) {
     score[y == class1] <- score1
     score[y == class2] <- score2
 
-    res <- data.table(score=score, y=y)
-
-    simulated_auc <- auc.rank(res, class1=class1)
-    #simulated_auc <- auc(roc(res$y, res$score))
+    simulated_auc <- auc.rank(score, y, class1=class1)
 
     count <- count + 1
   }
   msg <- paste0('Final AUC: ', simulated_auc, ' (iter: ', count, ') mu2: ', mu)
   message(msg)
 
-  return(res)
+  return(score)
 }
 
 # simple code to generate AUC list between initial and final values
-generate.auclist <- function(initial, final, N) {
+create.auclist <- function(initial, final, N) {
   delta <- (final - initial)/N
   initial + (1:N)*delta - delta
 }
 
 # generate classifer based on SUMMA and SUMMA+ method
-generate.ensemble <- function(auclist, N=100, rho=0.5, method='+') {
-  y <- generate.class(N=N, rho=rho)
-  glist <- purrr::map(auclist, function(x) predict.gaussian(y, x))
-  names(glist) <- auclist
+create_predictions <- function(n=1000, m=30, p=0.6, auclist=NULL, y=NULL, method='rank') {
+  if (is.null(auclist)) {
+    auclist <- create.auclist(0.51, 0.99, m)
+  } else {
+    m <- length(auclist)
+  }
+  if (is.null(y)) {
+    y <- create.labels(N=n, rho=p)
+  }
 
-  temp <- ensemble.gaussian(glist, method=method)
-  glist$summap <- temp
-  #print(str(glist))
-  glist
+  res <- matrix(nrow=n, ncol=m)
+  i <- 1
+
+  for (a in auclist) {
+    gs <- create.scores.gaussian(y, auc=a, tol=0.0001, max_iter=100)
+    res[ , i] <- gs
+    i <- i + 1
+  }
+
+  return (list(predictions = res, actual_labels = y, actual_performance = auclist))
 }
-
-testsumma <- function(auc0, auc1, method, rho, M) {
-  auclist <- generate.auclist(auc0, auc1, M)
-  summap <- generate.ensemble(auclist, N=1000, rho=rho, method=method)
-  df <- confMatrix(summap$summap)
-  df$method <- paste0('summa', method)
-  df$aucrange <- paste0(auc0, '-', auc1)
-  df$rho <- rho
-  df$M <- M
-
-  df
-}
-
-# tool functions
-erf <- function(x) 2 * pnorm(x * sqrt(2)) - 1
-erf.inv <- function(x) qnorm((x + 1)/2)/sqrt(2)

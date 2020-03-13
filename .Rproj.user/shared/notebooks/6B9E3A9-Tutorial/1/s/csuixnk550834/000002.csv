@@ -10,7 +10,7 @@ Attaching package: ‘pROC’
     cov, smooth, var
 
 "
-"0","roc_test <- roc(gc$y, gc$score)"
+"0","roc_test <- roc(y, gs)"
 "2","Setting levels: control = Class1, case = Class2
 "
 "2","Setting direction: controls < cases
