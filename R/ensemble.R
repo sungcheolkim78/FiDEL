@@ -130,7 +130,7 @@ setMethod("predict_performance", "FDensemble", function(.Object, actual_performa
     .Object@logit_matrix[, m] <- .Object@beta[m]^alpha * (.Object@rstar[m] - .Object@logit_matrix[, m] )
   }
   .Object@estimated_logit <- -rowMeans(.Object@logit_matrix)
-  .Object@estimated_label[.Object@estimated_logit > 0] <- 'class1'
+  .Object@estimated_label <- as.factor(ifelse(.Object@estimated_logit >0, 'class1', 'class2'))
   .Object@estimated_prob <- 1/(1+exp(-.Object@estimated_logit))
   .Object@estimated_rank <- frankv(.Object@estimated_logit)
 

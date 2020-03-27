@@ -37,11 +37,10 @@ new_mtrainer <- function(x = list(), method = "plus", fitControl = NULL) {
                  control = fitControl,
                  fitlist = list(),
                  testlist = list(),
-                 testproblist = list(),
-                 roclist = list(),
-                 lambdalist = list(),
+                 predictions = list(),
+                 performances = list(),
                  testdata = list(),
-                 Y = list(),
+                 actual_label = list(),
                  rho = numeric()),
             method = method,
             class = "mtrainer")
@@ -114,7 +113,7 @@ predict.mtrainer <- function(mtrainer, newdata = NULL, Y=NULL, alpha=1.0, newmod
   stopifnot(length(mtrainer$testdata) > 0)
 
   # check test class data set
-  if(!is.null(Y)) mtrainer$Y <- Y
+  if(!is.null(Y)) mtrainer$Y <- as_label(Y)
   stopifnot(length(mtrainer$Y) > 0)
 
   # check models for training
@@ -129,13 +128,12 @@ predict.mtrainer <- function(mtrainer, newdata = NULL, Y=NULL, alpha=1.0, newmod
     message(paste0('... predict using initial ', length(mtrainer$fitlist), ' classifiers'))
     check <- newmodellist == ' '
     mtrainer$testlist <- map(mtrainer$fitlist, predict, newdata=mtrainer$testdata)
-    mtrainer$testproblist <- map(mtrainer$fitlist, predict, newdata=mtrainer$testdata, type='prob')
+    mtrainer$predictions <- apply(mtrainer$fitlist, predict, newdata=mtrainer$testdata, type='prob')[[1]]
   }
+  print(mtrainer$predictions)
 
   # Y should be factor
-  class1name = levels(mtrainer$Y)[[1]]
-  class2name = levels(mtrainer$Y)[[2]]
-  mtrainer$rho <- sum(mtrainer$Y == class1name)/length(mtrainer$Y)
+  mtrainer$rho <- attr(Y, 'rho')
 
   # create probability matrix
   if (any(!check)) {
@@ -145,27 +143,13 @@ predict.mtrainer <- function(mtrainer, newdata = NULL, Y=NULL, alpha=1.0, newmod
   }
 
   # create roc, labmda, rstar list
-  mtrainer$roclist <- map(mtrainer$testproblist, rocrank, reference = mtrainer$Y)
-  mtrainer$lambdalist <- map(mtrainer$roclist, lambda_fromROC, N=length(mtrainer$Y), rho=mtrainer$rho)
+  mtrainer$roclist <- map(mtrainer$testproblist, auc.rank, mtrainer$Y)
 
   # calculate new score using mtrainer algorithm
-  if (method == 'mtrainer')
-    res <- cal_score_mtrainer(mtrainer, newmodellist = newmodellist)
-  else
-    res <- cal_score_mtrainerp(mtrainer, alpha = alpha, newmodellist = newmodellist)
-  if (alpha > 1) method <- paste0('mtrainer+', alpha)
+  fde1 <- fde(mtrainer$testproblist)
+  fde1 <- predict_performance(fde1, mtrainer$auclist, mtrainer$rho)
 
-  # add results
-  mtrainer$testlist[[method]] <- as.factor(ifelse(res > 0, class2name, class1name))
-  mtrainer$testproblist[[method]] <- data.frame(1/(1 + exp(res)), 1/(1+exp(-res)))
-  names(mtrainer$testproblist[[method]]) <- c(class1name, class2name)
-
-  mtrainer$roclist[method] <- rocrank(mtrainer$testproblist[[method]], reference = mtrainer$Y)
-  mtrainer$lambdalist[[method]] <- lambda_fromROC(mtrainer$roclist[[method]], N=length(mtrainer$Y), rho=mtrainer$rho)
-  mtrainer$confmatrix <- map(mtrainer$testlist, confusionMatrix, reference = mtrainer$Y)
-  mtrainer$modelInfo$modelcheck <- names(mtrainer$roclist) %in% c(newmodellist, method)
-
-  mtrainer
+  return (fde1)
 }
 
 plot.mtrainer <- function(mtrainer) {
@@ -174,10 +158,10 @@ plot.mtrainer <- function(mtrainer) {
 }
 
 print.mtrainer <- function(mtrainer, full=TRUE) {
-  print(mtrainerry.mtrainer(mtrainer, full=full))
+  print(summary.mtrainer(mtrainer, full=full))
 }
 
-mtrainerry.mtrainer <- function(mtrainer, full=TRUE) {
+summary.mtrainer <- function(mtrainer, full=TRUE) {
   # collect informations
   ROC <- unlist(mtrainer$roclist)
   l1 <- map_dbl(mtrainer$lambdalist, 1)

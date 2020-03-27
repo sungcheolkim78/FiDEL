@@ -23,6 +23,22 @@ create.labels <- function(N=100, rho=0.5) {
   return(res)
 }
 
+as_label <- function(ylist, class1=NULL) {
+  if (any('label' %in% class(ylist))) return(ylist)
+
+  ylist <- as.factor(ylist)
+  llist <- labels(ylist)
+
+  if (is.null(class1)) rho <- sum(ylist == llist[[1]])/length(ylist)
+  else rho <- sum(ylist == class1)/length(ylist)
+
+  attr(ylist, 'class1') <- llist[[1]]
+  attr(ylist, 'class2') <- llist[[2]]
+  attr(ylist, 'N') <- length(ylist)
+  attr(ylist, 'rho') <- rho
+  attr(ylist, 'class') <- c('factor', 'label')
+}
+
 # binary classifier using Gaussian score distribution
 create.scores.gaussian <- function(y, auc=0.8, tol=0.0001, max_iter=2000) {
   # check key numbers
