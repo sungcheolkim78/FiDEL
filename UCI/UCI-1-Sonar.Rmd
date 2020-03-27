@@ -17,7 +17,7 @@ data(Sonar)
 inTraining0 <- createDataPartition(Sonar$Class, p = .75, list = FALSE)
 training <- Sonar[ inTraining0,]
 testing  <- Sonar[-inTraining0,]
-testingY <- Sonar[-inTraining0, ncol(Sonar)]
+testingY <- as_label(Sonar[-inTraining0, ncol(Sonar)])
 ```
 
 ```{r}
@@ -29,16 +29,16 @@ t1 <- train(t1, Class~., training, update=F)
 ```
 
 ```{r}
-s1 <- addmodel.summa(s1, c('C5.0', 'gbm'))
-s1 <- train(s1, Class~., training, update=F)
+t1 <- addmodel.mtrainer(t1, c('C5.0', 'gbm'))
+t1 <- train(t1, Class~., training, update=F)
 ```
 
 ```{r}
-plot(s1)
+plot(t1)
 ```
 
 ```{r}
-(s1 <- predict(s1, newdata=testing, alpha=1, Y=testingY))
+fde1 <- predict(t1, newdata=testing, alpha=1, Y=testingY)
 ```
 
 ```{r}
