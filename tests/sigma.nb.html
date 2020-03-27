@@ -1774,44 +1774,44 @@ library(pROC)</code></pre>
 <h1>check CI function</h1>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxudmFyX2F1Y19mZXJtaSgwLjksIDAuOSwgTj0xMDAwLCBtZXRob2Q9J2ludGVncmFsJywgZGVidWcuZmxhZyA9IFQpXG5gYGAifQ== -->
-<pre class="r"><code>var_auc_fermi(0.9, 0.9, N=1000, method=&#39;integral&#39;, debug.flag = T)</code></pre>
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxudmFyX2F1Y19mZXJtaSgwLjksIDAuOSwgTj0xMDAwMCwgbWV0aG9kPSdpbnRlZ3JhbCcsIGRlYnVnLmZsYWcgPSBUKVxuYGBgIn0= -->
+<pre class="r"><code>var_auc_fermi(0.9, 0.9, N=10000, method=&#39;integral&#39;, debug.flag = T)</code></pre>
 <!-- rnb-source-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiLi4uIFB4eHkgaW50ZWdyYWwgY2FsY3VsYXRpb24gd2l0aCByZXMgPSAxZS0wNjogMC4yODcgc2VjIGVsYXBzZWRcbi4uLiBQeHl5IGludGVncmFsIGNhbGN1bGF0aW9uIHdpdGggcmVzID0gMWUtMDY6IDAuMDUgc2VjIGVsYXBzZWRcbi4uLiBQeHkgaW50ZWdyYWwgY2FsY3VsYXRpb24gd2l0aCByZXMgPSAxZS0wNjogMC4wNTEgc2VjIGVsYXBzZWRcblsxXSBcIk1ldGhvZDogaW50ZWdyYWxcIlxuWzFdIFwiYmV0YSc6IDguODM2Nzk2Njg0ODg3MjZcIlxuWzFdIFwibXUnOiAwLjk2MDE3NTM3MDk5MTUzNVwiXG5bMV0gXCJQeHh5OiAwLjgyMjIzMTcxNjUyOTgxNVwiXG5bMV0gXCJQeHl5OiAwLjg0NjY1MTE4MTc2MjM5NlwiXG5bMV0gXCJQeHk6IDAuOTAwMTU0Nzk3OTc1NDhcIlxuWzFdIFwiQVVDOiAwLjlcIlxuWzFdIFwiQVVDIFNpZ21hOiAwLjAxMjY2NTE1NDg2MzYzOTNcIlxuWzFdIFwiOTUlIENJOiAwLjg3NTE3NjI5NjQ2NzI2NyAtIDAuOTI0ODIzNzAzNTMyNzMzXCJcbiAgdmFyX2F1YyAgICAgICBQeHkgICAgICBQeHh5ICAgICAgUHh5eSBcbjAuMDAwMTYwNCAwLjkwMDE1NDggMC44MjIyMzE3IDAuODQ2NjUxMiBcbiJ9 -->
-<pre><code>... Pxxy integral calculation with res = 1e-06: 0.287 sec elapsed
-... Pxyy integral calculation with res = 1e-06: 0.05 sec elapsed
-... Pxy integral calculation with res = 1e-06: 0.051 sec elapsed
+<!-- rnb-output-begin eyJkYXRhIjoiLi4uIFB4eHkgaW50ZWdyYWwgY2FsY3VsYXRpb24gd2l0aCByZXMgPSAxZS0wNjogMC4wNjMgc2VjIGVsYXBzZWRcbi4uLiBQeHl5IGludGVncmFsIGNhbGN1bGF0aW9uIHdpdGggcmVzID0gMWUtMDY6IDAuMDQ5IHNlYyBlbGFwc2VkXG4uLi4gUHh5IGludGVncmFsIGNhbGN1bGF0aW9uIHdpdGggcmVzID0gMWUtMDY6IDAuMDk0IHNlYyBlbGFwc2VkXG5bMV0gXCJNZXRob2Q6IGludGVncmFsXCJcblsxXSBcImJldGEnOiA4LjgzNjc5NjY4NDg4NzI2XCJcblsxXSBcIm11JzogMC45NjAxNzUzNzA5OTE1MzVcIlxuWzFdIFwiUHh4eTogMC44MjIyMzE3MTY1MzE1NTJcIlxuWzFdIFwiUHh5eTogMC44NDY2NTExODE3Njg4OThcIlxuWzFdIFwiUHh5OiAwLjkwMDE1NDc5Nzk3NTQ4MVwiXG5bMV0gXCJBVUM6IDAuOVwiXG5bMV0gXCJBVUMgU2lnbWE6IDAuMDAzOTk5ODgzMDI1MDk2MjZcIlxuWzFdIFwiOTUlIENJOiAwLjg5MjE2MDIyOTI3MDgxMSAtIDAuOTA3ODM5NzcwNzI5MTg5XCJcbiB2YXJfYXVjICAgICAgUHh5ICAgICBQeHh5ICAgICBQeHl5IFxuMC4wMDAwMTYgMC45MDAxNTUgMC44MjIyMzIgMC44NDY2NTEgXG4ifQ== -->
+<pre><code>... Pxxy integral calculation with res = 1e-06: 0.063 sec elapsed
+... Pxyy integral calculation with res = 1e-06: 0.049 sec elapsed
+... Pxy integral calculation with res = 1e-06: 0.094 sec elapsed
 [1] &quot;Method: integral&quot;
 [1] &quot;beta&#39;: 8.83679668488726&quot;
 [1] &quot;mu&#39;: 0.960175370991535&quot;
-[1] &quot;Pxxy: 0.822231716529815&quot;
-[1] &quot;Pxyy: 0.846651181762396&quot;
-[1] &quot;Pxy: 0.90015479797548&quot;
+[1] &quot;Pxxy: 0.822231716531552&quot;
+[1] &quot;Pxyy: 0.846651181768898&quot;
+[1] &quot;Pxy: 0.900154797975481&quot;
 [1] &quot;AUC: 0.9&quot;
-[1] &quot;AUC Sigma: 0.0126651548636393&quot;
-[1] &quot;95% CI: 0.875176296467267 - 0.924823703532733&quot;
-  var_auc       Pxy      Pxxy      Pxyy 
-0.0001604 0.9001548 0.8222317 0.8466512 </code></pre>
+[1] &quot;AUC Sigma: 0.00399988302509626&quot;
+[1] &quot;95% CI: 0.892160229270811 - 0.907839770729189&quot;
+ var_auc      Pxy     Pxxy     Pxyy 
+0.000016 0.900155 0.822232 0.846651 </code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxudmFyX2F1Y19mZXJtaSgwLjksIDAuOSwgTj0xMDAwLCBtZXRob2QgPSAnc2FtcGxpbmcnLCBkZWJ1Zy5mbGFnID0gVClcbmBgYCJ9 -->
-<pre class="r"><code>var_auc_fermi(0.9, 0.9, N=1000, method = &#39;sampling&#39;, debug.flag = T)</code></pre>
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxudmFyX2F1Y19mZXJtaSgwLjksIDAuOSwgTj0xMDAwMCwgbWV0aG9kID0gJ3NhbXBsaW5nJywgZGVidWcuZmxhZyA9IFQpXG5gYGAifQ== -->
+<pre class="r"><code>var_auc_fermi(0.9, 0.9, N=10000, method = &#39;sampling&#39;, debug.flag = T)</code></pre>
 <!-- rnb-source-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiWzFdIFwiTWV0aG9kOiBzYW1wbGluZ1wiXG5bMV0gXCJiZXRhJzogOC44MzY3OTY2ODQ4ODcyNlwiXG5bMV0gXCJtdSc6IDAuOTYwMTc1MzcwOTkxNTM1XCJcblsxXSBcIlB4eHk6IDAuODE4XCJcblsxXSBcIlB4eXk6IDAuODQyNFwiXG5bMV0gXCJQeHk6IDAuODk5NFwiXG5bMV0gXCJBVUM6IDAuOVwiXG5bMV0gXCJBVUMgU2lnbWE6IDAuMDExMzM3MDM4Nzg2NDA0N1wiXG5bMV0gXCI5NSUgQ0k6IDAuODc3Nzc5NDAzOTc4NjQ3IC0gMC45MjIyMjA1OTYwMjEzNTNcIlxuICB2YXJfYXVjICAgICAgIFB4eSAgICAgIFB4eHkgICAgICBQeHl5IFxuMC4wMDAxMjg1IDAuODk5NDAwMCAwLjgxODAwMDAgMC44NDI0MDAwIFxuIn0= -->
+<!-- rnb-output-begin eyJkYXRhIjoiWzFdIFwiTWV0aG9kOiBzYW1wbGluZ1wiXG5bMV0gXCJiZXRhJzogOC44MzY3OTY2ODQ4ODcyNlwiXG5bMV0gXCJtdSc6IDAuOTYwMTc1MzcwOTkxNTM1XCJcblsxXSBcIlB4eHk6IDAuODE2OFwiXG5bMV0gXCJQeHl5OiAwLjg0NDZcIlxuWzFdIFwiUHh5OiAwLjkwMDRcIlxuWzFdIFwiQVVDOiAwLjlcIlxuWzFdIFwiQVVDIFNpZ21hOiAwLjAwMzEzODQzNzY4OTE4Mzc0XCJcblsxXSBcIjk1JSBDSTogMC44OTM4NDg2NjIxMjkyIC0gMC45MDYxNTEzMzc4NzA4XCJcbiAgdmFyX2F1YyAgICAgICBQeHkgICAgICBQeHh5ICAgICAgUHh5eSBcbjkuODUwZS0wNiA5LjAwNGUtMDEgOC4xNjhlLTAxIDguNDQ2ZS0wMSBcbiJ9 -->
 <pre><code>[1] &quot;Method: sampling&quot;
 [1] &quot;beta&#39;: 8.83679668488726&quot;
 [1] &quot;mu&#39;: 0.960175370991535&quot;
-[1] &quot;Pxxy: 0.818&quot;
-[1] &quot;Pxyy: 0.8424&quot;
-[1] &quot;Pxy: 0.8994&quot;
+[1] &quot;Pxxy: 0.8168&quot;
+[1] &quot;Pxyy: 0.8446&quot;
+[1] &quot;Pxy: 0.9004&quot;
 [1] &quot;AUC: 0.9&quot;
-[1] &quot;AUC Sigma: 0.0113370387864047&quot;
-[1] &quot;95% CI: 0.877779403978647 - 0.922220596021353&quot;
+[1] &quot;AUC Sigma: 0.00313843768918374&quot;
+[1] &quot;95% CI: 0.8938486621292 - 0.9061513378708&quot;
   var_auc       Pxy      Pxxy      Pxyy 
-0.0001285 0.8994000 0.8180000 0.8424000 </code></pre>
+9.850e-06 9.004e-01 8.168e-01 8.446e-01 </code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
@@ -1847,7 +1847,7 @@ pcrd$prob &lt;- fermi.b(pcrd$rank, 7.5556e-3, 4.999e2)</code></pre>
 <!-- rnb-text-end -->
 </div>
 
-<div id="rmd-source-code">LS0tCnRpdGxlOiAiUiBOb3RlYm9vayIKb3V0cHV0OiBodG1sX25vdGVib29rCi0tLQoKYGBge3J9CmxpYnJhcnkoRkRjbGFzc2lmaWVSKQpsaWJyYXJ5KHBST0MpCmBgYAoKIyBjaGVjayBDSSBmdW5jdGlvbgoKYGBge3J9CnZhcl9hdWNfZmVybWkoMC45LCAwLjksIE49MTAwMCwgbWV0aG9kPSdpbnRlZ3JhbCcsIGRlYnVnLmZsYWcgPSBUKQpgYGAKCmBgYHtyfQp2YXJfYXVjX2Zlcm1pKDAuOSwgMC45LCBOPTEwMDAsIG1ldGhvZCA9ICdzYW1wbGluZycsIGRlYnVnLmZsYWcgPSBUKQpgYGAKCmBgYHtyfQpnZXRfZmVybWkoMC45LCAwLjUsIE49MTAwMCkKYGBgCgpgYGB7cn0KcGNyZCA8LSBkYXRhLnRhYmxlKHJhbms9MToxMDAwKQpwY3JkJHByb2IgPC0gZmVybWkuYihwY3JkJHJhbmssIDcuNTU1NmUtMywgNC45OTllMikKYGBgCgpgYGB7cn0KdmFyCmBgYAoK</div>
+<div id="rmd-source-code">LS0tCnRpdGxlOiAiUiBOb3RlYm9vayIKb3V0cHV0OiBodG1sX25vdGVib29rCi0tLQoKYGBge3J9CmxpYnJhcnkoRkRjbGFzc2lmaWVSKQpsaWJyYXJ5KHBST0MpCmBgYAoKIyBjaGVjayBDSSBmdW5jdGlvbgoKYGBge3J9CnZhcl9hdWNfZmVybWkoMC45LCAwLjksIE49MTAwMDAsIG1ldGhvZD0naW50ZWdyYWwnLCBkZWJ1Zy5mbGFnID0gVCkKYGBgCgpgYGB7cn0KdmFyX2F1Y19mZXJtaSgwLjksIDAuOSwgTj0xMDAwMCwgbWV0aG9kID0gJ3NhbXBsaW5nJywgZGVidWcuZmxhZyA9IFQpCmBgYAoKYGBge3J9CmdldF9mZXJtaSgwLjksIDAuNSwgTj0xMDAwKQpgYGAKCmBgYHtyfQpwY3JkIDwtIGRhdGEudGFibGUocmFuaz0xOjEwMDApCnBjcmQkcHJvYiA8LSBmZXJtaS5iKHBjcmQkcmFuaywgNy41NTU2ZS0zLCA0Ljk5OWUyKQpgYGAKCmBgYHtyfQp2YXIKYGBgCgo=</div>
 
 
 
