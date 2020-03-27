@@ -59,7 +59,7 @@ create.scores.gaussian <- function(y, auc=0.8, tol=0.0001, max_iter=2000) {
     score[y == class1] <- score1
     score[y == class2] <- score2
 
-    simulated_auc <- auc.rank(score, y, class1=class1)
+    simulated_auc <- auc.rank(score, y)
 
     count <- count + 1
   }
@@ -71,8 +71,11 @@ create.scores.gaussian <- function(y, auc=0.8, tol=0.0001, max_iter=2000) {
 
 # simple code to generate AUC list between initial and final values
 create.auclist <- function(initial, final, N) {
+  if (initial <= 0.5) { initial = 0.501 }
+  if (final >= 1.0) { final = 1.0 }
+
   delta <- (final - initial)/N
-  initial + (1:N)*delta - delta
+  initial + (0:N)*delta
 }
 
 # generate classifer based on SUMMA and SUMMA+ method
@@ -90,10 +93,13 @@ create_predictions <- function(n=1000, m=30, p=0.6, auclist=NULL, y=NULL, method
   i <- 1
 
   for (a in auclist) {
-    gs <- create.scores.gaussian(y, auc=a, tol=0.0001, max_iter=100)
+    gs <- create.scores.gaussian(y, auc=a, tol=0.0001, max_iter=1000)
     res[ , i] <- gs
     i <- i + 1
   }
+
+  gen_name <- function(x) { paste0('A_', round(x, digits=2)) }
+  colnames(res) <- sapply(auclist, gen_name)
 
   return (list(predictions = res, actual_labels = y, actual_performance = auclist))
 }

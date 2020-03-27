@@ -4,209 +4,30 @@ output: html_notebook
 ---
 
 ```{r}
-library(rfermiclassifier)
+library(FDclassifieR)
 library(pROC)
 ```
 
+# check CI function
 
 ```{r}
-fermi <- function(r, l1, l2) {
-  return (1/(1+exp(l2*r+l1)))
-}
+var_auc_fermi(0.9, 0.9, N=1000, method='integral', debug.flag = T)
 ```
 
 ```{r}
-N1 = 150 #283
-N2 = 100 #25374
-auc = 0.8
-N = N1 + N2
-rho = N1/N
-
-l <- lambda.auc(auc, N=N, rho=rho)
-l
+var_auc_fermi(0.9, 0.9, N=1000, method = 'sampling', debug.flag = T)
 ```
 
 ```{r}
-ranks <- 1:N
-probs <- fermi(ranks, l['l1'], l['l2'])
-check <- probs > runif(N)
-plot(ranks, probs)
+get_fermi(0.9, 0.5, N=1000)
 ```
 
 ```{r}
-a <- roc(check, probs)
-aa <- ci(a)
-sigma <- (aa[3]-aa[2])/1.96
-sigma
-```
-
-
-```{r}
-countXXY <- function(ranks, probs) {
-  rsample <- sample(ranks, 3)
-  dices <- runif(3)
-  check <- probs[rsample] > dices
-  
-  #print(rsample)
-  #print(probs[rsample])
-  #print(dices)
-  #print(check)
-  
-  if (sum(check) == 2) {
-    if (rsample[!check] == max(rsample))
-      return(1)
-  }
-  return(0)
-}
-
-countXYY <- function(ranks, probs) {
-  rsample <- sample(ranks, 3)
-  dices <- runif(3)
-  check <- probs[rsample] > dices
-  
-  #print(rsample)
-  #print(probs[rsample])
-  #print(dices)
-  #print(check)
-  
-  if (sum(check) == 1) {
-    if (rsample[check] == min(rsample))
-      return(1)
-  }
-  return(0)
-}
-
-countXY <- function(ranks, probs) {
-  rsample <- sample(ranks, 2)
-  dices <- runif(2)
-  check <- probs[rsample] > dices
- 
-  #print(rsample)
-  #print(probs[rsample])
-  #print(dices)
-  #print(check)
-  
-  if (sum(check) == 1) {
-    #print(rsample[check])
-    #print(rsample[!check])
-    
-    if (rsample[check] < rsample[!check]) {
-      return(1)
-    }
-  }
-  
-  return (0)
-}
+pcrd <- data.table(rank=1:1000)
+pcrd$prob <- fermi.b(pcrd$rank, 7.5556e-3, 4.999e2)
 ```
 
 ```{r}
-countXXY(ranks, probs)
-countXYY(ranks, probs)
-countXY(ranks, probs)
-```
-
-```{r}
-Pxxy_sample <- function(iter, ranks, probs, debug.flag=FALSE) {
-  res <- numeric(0)
-
-  for(i in 1:iter) {
-    res <- c(res, countXXY(ranks, probs))
-  }
-
-  res <- cumsum(res)/(1:iter)
-  #print(res[length(res)])
-  if (debug.flag) plot(res)
-  
-  return(3*res[length(res)])
-}
-
-Pxyy_sample <- function(iter, ranks, probs, debug.flag=FALSE) {
-  res <- numeric(0)
-
-  for(i in 1:iter) {
-    res <- c(res, countXYY(ranks, probs))
-  }
-
-  res <- cumsum(res)/(1:iter)
-  #print(res[length(res)])
-  if (debug.flag) plot(res)
-  
-  return(3*res[length(res)])
-}
-
-Pxy_sample <- function(iter, ranks, probs, debug.flag=FALSE) {
-  res <- numeric(0)
-
-  for(i in 1:iter) {
-    res <- c(res, countXY(ranks, probs))
-  }
-
-  res <- cumsum(res)/(1:iter)
-  #print(res[length(res)])
-  if (debug.flag) plot(res)
-  
-  return(2*res[length(res)])
-}
-```
-
-```{r}
-Pxxy_sample(1000, ranks, probs)
-```
-
-```{r}
-Pxyy_sample(1000, ranks, probs)
-```
-
-```{r}
-Pxy_sample(10000, ranks, probs)
-```
-
-
-```{r}
-var_auc <- function(auc, N1, N2, debug.flag=FALSE) {
-  N <- N1 + N2
-  l <- lambda.auc(auc, N=N, rho=N1/N)
-  if (debug.flag) print(l)
-  
-  ranks <- 1:N
-  probs <- fermi(ranks, l['l1'], l['l2'])
-  if (debug.flag) plot(ranks, probs)
-  
-  Pxxy_value <- Pxxy_sample(8000, ranks, probs)
-  Pxyy_value <- Pxyy_sample(8000, ranks, probs)
-  Pxy_value <- Pxy_sample(8000, ranks, probs)
-  var.auc <- (auc*(1-auc) + (N1 - 1)*(Pxxy_value - auc*auc) + (N2 - 1)*(Pxyy_value - auc*auc))/(N1*N2)
-  
-  if (debug.flag) {
-    print(paste0('Rho: ', N1/N))
-    print(paste0('Pxxy: ', Pxxy_value))
-    print(paste0('Pxyy: ', Pxyy_value))
-    print(paste0('Pxy: ', Pxy_value))
-    print(paste0('AUC: ', auc))
-    print(paste0('ci sigma: ', sqrt(var.auc)))
-  }
-  return(var.auc)
-}
-
-```
-
-```{r}
-var_auc(0.858, 1500, 1000, debug.flag = T)
-```
-
-
-```{r}
-Pxy <- function(ranks, l1, l2) {
-  r1 <- fermi(ranks, l1, l2)
-  r2 <- fermi(ranks, -l1, -l2)
-  res <- outer(r1, r2, "*")
-  
-  #head(res)
-  sum(res[upper.tri(res)])
-}
-```
-
-```{r}
-Pxy(ranks, l['l1'], l['l2'])/(500*500)
+var
 ```
 

@@ -1,15 +1,4 @@
 "0","library(pROC)"
-"2","Type 'citation(""pROC"")' for a citation.
-"
-"2","
-Attaching package: ‘pROC’
-
-"
-"2","The following objects are masked from ‘package:stats’:
-
-    cov, smooth, var
-
-"
 "0","roc_test <- roc(y, gs)"
 "2","Setting levels: control = Class1, case = Class2
 "
