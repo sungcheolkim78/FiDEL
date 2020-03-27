@@ -1,0 +1,159 @@
+---
+title: "FD ensemble test with UCI data - Sonar"
+author: "Sungcheol Kim"
+date: "12/5/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(mlbench)
+library(caret)
+
+source('rprob-new.R')
+```
+
+## Sonar data
+
+```{r initial analysis}
+fitControl <- trainControl(method = "repeatedcv",
+                           number = 10,
+                           repeats = 10,
+                           classProbs = TRUE,
+                           summaryFunction = twoClassSummary)
+
+gbmGrid <-  expand.grid(interaction.depth = c(3,5,7), 
+                        n.trees = (2:7)*50, 
+                        shrinkage = 0.1,
+                        n.minobsinnode = 20)
+
+#set.seed(200)
+data(Sonar)
+inTraining0 <- createDataPartition(Sonar$Class, p = .75, list = FALSE)
+training <- Sonar[ inTraining0,]
+testing  <- Sonar[-inTraining0,]
+testingY <- Sonar[-inTraining0, ncol(Sonar)]
+rho <- findrho(testingY, 'M')
+
+print(rho)
+```
+
+```{r}
+gbmFit <- multicore_train("gbm", Class ~ ., training, fitControl, gbmGrid, dataName = "Sonar", save=T)
+svmFit <- multicore_train("svm", Class ~ ., training, fitControl, 8, dataName = "Sonar", save=T)
+rdaFit <- multicore_train("rda", Class ~ ., training, fitControl, 4, dataName = "Sonar", save=T)
+plsFit <- multicore_train("pls", Class ~ ., training, fitControl, 8, dataName = "Sonar", save=T)
+lgbFit <- multicore_train("lgb", Class ~ ., training, fitControl, 30, dataName = "Sonar", save=T)
+pRFFit <- multicore_train("pRF", Class ~ ., training, fitControl, 3, dataName = "Sonar", save=T)
+```
+
+```{r}
+load('gbm_Sonar.RData'); gbmFit <- Fit
+load('svm_Sonar.RData'); svmFit <- Fit
+load('rda_Sonar.RData'); rdaFit <- Fit
+load('pls_Sonar.RData'); plsFit <- Fit
+load('lgb_Sonar.RData'); lgbFit <- Fit
+load('pRF_Sonar.RData'); pRFFit <- Fit
+```
+
+### Select best parameters
+
+```{r}
+ggplot(gbmFit)
+ggplot(svmFit)
+ggplot(rdaFit)
+ggplot(plsFit)
+ggplot(lgbFit)
+ggplot(pRFFit)
+```
+
+```{r}
+lambda.gbm <- findlambda(gbmFit, newdata = testing, Y = testingY, rho = rho, save.pdf = T)
+lambda.svm <- findlambda(svmFit, newdata = testing, Y = testingY, rho = rho, save.pdf = T)
+lambda.rda <- findlambda(rdaFit, newdata = testing, Y = testingY, rho = rho, save.pdf = T)
+lambda.pls <- findlambda(plsFit, newdata = testing, Y = testingY, rho = rho, save.pdf = T)
+lambda.lgb <- findlambda(lgbFit, newdata = testing, Y = testingY, rho = rho, save.pdf = T)
+lambda.pRF <- findlambda(pRFFit, newdata = testing, Y = testingY, rho = rho, save.pdf = T)
+```
+
+```{r}
+summaFit <- summaplus_train(svmFit, gbmFit, rdaFit, plsFit, lgbFit, pRFFit, dataName = 'Sonar')
+lambda.summa <- findlambda(summaFit, newdata = testing, Y = testingY, rho = rho, save.pdf = T)
+```
+
+```{r, fig.width=4, fig.height=3}
+roc.svm <- modelplot.roc(svmFit, testing, testingY, rho, save.pdf=T)
+roc.gbm <- modelplot.roc(gbmFit, testing, testingY, rho, save.pdf=T)
+roc.rda <- modelplot.roc(rdaFit, testing, testingY, rho, save.pdf=T)
+roc.pls <- modelplot.roc(plsFit, testing, testingY, rho, save.pdf=T)
+roc.lgb <- modelplot.roc(lgbFit, testing, testingY, rho, save.pdf=T)
+roc.pRF <- modelplot.roc(pRFFit, testing, testingY, rho, save.pdf=T)
+```
+
+```{r}
+roc.smp <- modelplot.roc(summaFit, testing, testingY, rho, save.pdf=T)
+```
+
+```{r}
+allmodels <- list(gbmFit, svmFit, rdaFit, plsFit, lgbFit, pRFFit, summaFit)
+
+pdf('rank_prob_all_summa.pdf', width=12, height=6)
+modelplot.rank(allmodels, testing, rho)
+dev.off()
+```
+
+### predict
+
+```{r}
+findlambda(summaFit, testing, rho)
+```
+
+## Rank class probability
+
+```{r}
+rprob.gbm <- iterate.model('gbm', Sonar, Sonar$Class, Class~., 10, gbmFit$bestTune)
+lambda.gbm <- fitFD(rprob.gbm, 'gbm 10 iter', Sonar$Class)
+```
+
+```{r}
+rprob.svm <- iterate.model('svm', Sonar, Sonar$Class, Class~., 10, svmFit$bestTune)
+lambda.svm <- fitFD(rprob.svm, 'svm 10 iter', Sonar$Class)
+```
+
+```{r}
+rprob.rda <- iterate.model('rda', Sonar, Sonar$Class, Class~., 10, rdaFit$bestTune)
+lambda.rda <- fitFD(rprob.rda, 'rda 10 iter', Sonar$Class)
+```
+
+```{r}
+rprob.pls <- iterate.model('pls', Sonar, Sonar$Class, Class~., 10, plsFit$bestTune)
+lambda.pls <- fitFD(rprob.pls, 'pls 10 iter', Sonar$Class)
+```
+
+## SUMMA+
+
+```{r}
+source('rprob.R')
+summaFit <- summaplus_train(gbmFit, rdaFit, plsFit, pRFFit)
+#summaFit <- predict(summaFit, testing, rho, type='prob', verbose = T)
+findlambda(summaFit, testing, rho)
+findlambda(gbmFit, testing, rho)
+```
+
+```{r}
+#pdf('ROC-summa+.pdf', width=6, height=6)
+summa.roc <- modelplot.roc(summaFit, testing, testingY, rho)
+#dev.off()
+```
+
+```{r}
+source('rprob.R')
+#allmodels <- list(gbmFit, rdaFit, plsFit, pRFFit, summaFit)
+#summaFit <- summaplus_train(gbmFit, plsFit, lgbFit, dataName = 'Sonar')
+a <- computeAUCs(summaFit, testing, testingY, rho)
+t(a)
+```
+
+```{r}
+modelplot.roc(summaFit, testing, testingY, rho, save.pdf = T)
+```

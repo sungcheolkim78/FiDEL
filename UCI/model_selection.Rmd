@@ -1,0 +1,36 @@
+---
+title: "model_selection"
+author: "Sungcheol Kim"
+date: "12/17/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+library(caret)
+
+tag <- read.csv("tag_data.csv", row.names = 1)
+tag <- as.matrix(tag)
+
+## Select only models for regression
+regModels <- tag[tag[,"Classification"] == 1,]
+
+all <- 1:nrow(regModels)
+## Seed the analysis with the SVM model
+start <- grep("(gbm)", rownames(regModels), fixed = TRUE)
+pool <- all[all != start]
+
+## Select 4 model models by maximizing the Jaccard
+## dissimilarity between sets of models
+nextMods <- maxDissim(regModels[start,,drop = FALSE], 
+                      regModels[pool, ], 
+                      method = "Jaccard",
+                      n = 4)
+
+rownames(regModels)[c(start, nextMods)]
+```

@@ -1,0 +1,113 @@
+---
+title: "optimize"
+author: "Sungcheol Kim"
+date: "12/18/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+source('rprob-new.R')
+require(graphics)
+
+p1r <- function(r, x) {
+  1/(1+exp(x[2]*(x[1] - r)))
+}
+
+cauc <- function(l, rho, N) {
+  r <- 1:N
+  f <- 1/(1+exp(l[2]*(l[1] - r)))
+  sum1 <- sum(r/(1+exp(l[2]*(l[1] - r))))/(N*rho)
+  print(sum(f))
+  
+  (N+1)/(2*N*(1-rho)) + 0.5 - sum1/(N*(1-rho))
+}
+
+findrho <- function(l, N) {
+  r <- 1:N
+  f <- 1/(1+exp(l[2]*(l[1] - r)))
+  sum(f)/N
+}
+
+cauc2 <- function(l, rho, N) {
+  r <- 1:N
+  sum1 <- sum(r/(1+exp(l[2]*r - l[1])))/(N*rho)
+  sum2 <- sum(r*(1 - 1/(1+exp(l[2]*r - l[1]))))/(N*(1-rho))
+  #print(c(sum1, sum2))
+  (sum2 - sum1)/N + 0.5
+}
+
+cost <- function(l, rho, N, AUC) {   ## Rosenbrock Banana function
+    r <- 1:N
+    sum1 <- sum(1/(1+exp(l[2]*(l[1] - r))))/N
+    sum2 <- sum(r/(1+exp(l[2]*(l[1] - r))))/(N*N*rho)
+    (rho - sum1)^2 + (1 + .5/N - rho/2 - AUC*(1-rho) - sum2)^2
+}
+
+rho = 0.25
+N = 100
+r = 1:N
+
+#print(cauc2(c(5.0, 0.1), rho, N))
+lf <- optim(c(N*rho, -1), cost, rho=rho, N=N, AUC=0.99)
+llf <- sprintf('AUC: %.4f \nrho: %.4f\nl1: %.4f\nl2: %.4f\nIter: (%i)', cauc(lf$par, rho, N), findrho(lf$par, N), lf$par[1], lf$par[2], lf$counts[1])
+
+plot(r, p1r(r, lf$par), xlab='Rank', ylab='p(1|r)', ylim=c(0, 1))
+text(N, 1.0, llf, adj = c(1,1))
+
+```
+
+
+```{r pressure, echo=FALSE}
+rho = .25
+pdf('rank_prob_auc_0.9_1.0rho.25.pdf', width=8, height=6)
+#print(cauc2(c(5.0, 0.1), rho, N))
+l <- optim(c(N*rho*0.1, 0.1), fr, rho=rho, N=N, AUC=0.9)
+ll <- sprintf('AUC: %.2f', cauc(l$par, rho, N))
+
+plot(r, p1r(r, l$par), type='l', ylim=c(0,1), ylab='P(1|r)', xlab='Rank', lty=1, col=1)
+
+for (i in 1:5) {
+  l <- optim(c(N*rho*0.02, 0.02), fr, rho=rho, N=N, AUC=0.9+0.019*i)
+  ll <- c(ll, sprintf('AUC: %.2f', cauc(l$par, rho, N)))
+
+  lines(r, p1r(r, l$par), lty=i, col=i+1)
+  #points(r, p1r(r, l$par), pch=i+1, col=i+1)
+}
+
+legend("topright", c(ll), lty=1:6, col=1:6)
+dev.off()
+```
+
+
+
+```{r}
+## "wild" function , global minimum at about -15.81515
+fw <- function (x)
+    10*sin(0.3*x)*sin(1.3*x^2) + 0.00001*x^4 + 0.2*x+80
+plot(fw, -50, 50, n = 1000, main = "optim() minimising 'wild function'")
+
+res <- optim(50, fw, method = "SANN",
+             control = list(maxit = 20000, temp = 20, parscale = 20))
+res
+## Now improve locally {typically only by a small bit}:
+(r2 <- optim(res$par, fw, method = "BFGS"))
+points(r2$par,  r2$value,  pch = 8, col = "red", cex = 2)
+```
+
+```{r}
+f <- function (x, a) (x - a)^2
+xmin <- optimize(f, c(0, 1), tol = 0.0001, a = 1/3)
+xmin
+```
+
+```{r}
+
+## See where the function is evaluated:
+optimize(function(x) x^2*(print(x)-1), lower = 0, upper = 10)
+```

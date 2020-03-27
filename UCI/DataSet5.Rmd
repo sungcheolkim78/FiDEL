@@ -1,0 +1,99 @@
+---
+title: "DataSet5 - Yeast"
+author: "Sungcheol Kim"
+date: "12/19/2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(readr)
+library(caret)
+
+source('r_summa.R')
+```
+
+## Prepare Data
+
+```{r}
+#yeast <- read_table(url("http://archive.ics.uci.edu/ml/machine-learning-databases/yeast/yeast.data"))
+yeast <- read.table('yeast.data')
+names(yeast)<- c("SequenceName", "mcg", "gvh", "alm", "mit", "erl", "pox", "vac", "nuc", "LocalizationSite")
+#yeast$LocalizationSite <- as.factor(yeast$LocalizationSite)
+
+#head(yeast)
+#table(yeast$LocalizationSite)
+
+df <- yeast[yeast$LocalizationSite %in% c('CYT', 'NUC'), 2:10]
+names(df)[ncol(df)] <- 'Class'
+df$Class <- factor(df$Class, c('CYT', 'NUC'))
+#head(df)
+
+table(df$Class)
+```
+
+```{r}
+buildSummaModel <- function(iter, ml=modellist, df=df) {
+  set.seed(iter)
+  inTraining0 <- createDataPartition(df$Class, p = .75, list = FALSE)
+  training <- df[ inTraining0, ]
+  testing  <- df[-inTraining0, ]
+  testingY <- df[-inTraining0, ncol(df)]
+  
+  temp <- summa(modellist) %>%
+    train(Class~., training, update=FALSE) %>%
+    predict(newdata = testing, alpha=1, Y=testingY)
+
+  saveRDS(temp, file=paste0("DS5_partition",iter,"_summa.RData"))
+  temp
+}
+```
+
+```{r}
+modellist <- c('nnet', 'rda', 'pls', 'C5.0', 'ctree', 'gbm', 'avNNet', 'rpart', 'bayesglm') 
+
+s1 <- buildSummaModel(1, ml=modellist, df=df)
+```
+
+```{r}
+modellist <- c('nnet', 'rda', 'pls', 'C5.0', 'ctree', 'gbm', 'avNNet', 'rpart', 'bayesglm') 
+
+sss <- map(1:10, buildSummaModel, ml=modellist, df=df)
+```
+
+```{r}
+plot(s1)
+```
+
+```{r}
+summary(s1)
+```
+
+
+```{r}
+generate_plot(sss, alpha=3, dataname = '4')
+```
+
+```{r}
+generate_plot(sss, alpha=7, dataname = '4')
+```
+
+```{r}
+alpha <- 1
+
+res <- sss %>%
+  map(predict, alpha=alpha) %>%
+  map(summary.summa) %>%
+  reduce(rbind)
+
+res[res$model == 'summa', 'model'] <- 'summa+'
+res
+```
+
+```{r}
+ggplot(res, aes(x=ROC, y=l2, color=model)) + geom_point()
+```
+
