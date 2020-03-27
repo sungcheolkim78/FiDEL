@@ -9,21 +9,22 @@ library(FDclassifieR)
 ```
 
 ```{r}
-y <- generate.labels(N=10000, rho=0.3)
+y <- create.labels(N=10000, rho=0.2)
 table(y)
 ```
 
 ```{r}
-gs <- generate.scores.gaussian(y, auc=0.8)
-plot.scores(gs)
+gs <- create.scores.gaussian(y, auc=0.9)
+plot.scores(gs,y)
 ```
 
 ```{r}
-lambda.auc(auc.rank(gs, y), N=attr(y, 'N'), rho=attr(y, 'rho'))
+get_fermi(auc.rank(gs, y), rho=attr(y, 'rho'))
 ```
 
 ```{r}
-data_g <- create_predictions(n=1000, m=10, p=0.3)
+auclist <- create.auclist(0.8, 0.81, 10)
+data_g <- create_predictions(n=10000, auclist = auclist, p=0.05)
 ```
 
 ```{r}
@@ -31,16 +32,32 @@ estimated_rank <- ensemble.fermi(data_g$predictions, data_g$actual_labels, debug
 ```
 
 ```{r}
-hist(estimated_rank)
+plot.scores(data_g$predictions[,10], data_g$actual_labels)
 ```
 
 ```{r}
-fde1 <- fdensemble(data_g$predictions)
-fde1 <- calculate_performance(fde1, data_g$actual_labels)
+plot.scores(estimated_rank, data_g$actual_labels)
 ```
 
 ```{r}
-hist(fde1@estimated_rank)
+fde1 <- fde(data_g$predictions)
+fde1 <- calculate_performance(fde1, data_g$actual_labels, alpha=1)
+#auc.rank(fde1@estimated_prob, data_g$actual_labels)
+```
+
+```{r}
+fde2 <- predict_performance(fde1, auclist, 0.2, alpha=2)
+print(auc.rank(fde2@estimated_rank, data_g$actual_labels))
+auc.rank(fde2@estimated_prob, data_g$actual_labels)
+```
+
+```{r}
+plot(fde1@estimated_rank, fde1@estimated_prob)
+points(fde2@estimated_rank, fde2@estimated_prob)
+```
+
+```{r}
+plot_single(fde1, 'score')
 ```
 
 

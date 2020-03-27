@@ -1,0 +1,82 @@
+---
+title: "check_functions"
+author: "Sungcheol Kim"
+date: "1/22/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(FDclassifieR)
+library(ggplot2)
+library(latex2exp)
+```
+
+## lambda function
+
+```{r}
+get_fermi(0.8, 0.1, N=10000)
+```
+
+
+```{r}
+auclist <- (2:48)*0.01 + 0.5
+rholist <- (2:18)*0.05
+N <-1000
+
+res <- data.table()
+
+for (a in auclist) {
+  for (r in rholist) {
+    temp <- get_fermi(a, r)
+    temp <- c(temp, a, r)
+    res <- cbind(res, temp)
+  }
+}
+ 
+res <- data.table(t(res))
+colnames(res) <- c('beta', 'mu', 'rs', 'AUC', 'rho')
+res
+```
+
+```{r}
+g1 <- ggplot(data=res) + geom_point(aes(x=AUC, y=mu, color=rho)) + theme_classic() + 
+  xlab('AUC') + ylab(TeX('$\\mu/N$'))
+#ggsave('lambda_auc_l1.pdf', width=6)
+g1
+```
+
+```{r}
+g2 <- ggplot(data=res) + geom_point(aes(x=AUC, y=beta, color=rho)) + theme_classic() +
+  xlab('AUC') + ylab(TeX('$N \\beta$'))
+#ggsave('lambda_auc_l2.pdf', width=6)
+g2
+```
+
+```{r}
+g3 <- ggplot(data=res) + geom_point(aes(x=AUC, y=rs, color=rho)) + theme_classic() +
+  xlab('AUC') + ylab('R*/N')
+#ggsave('lambda_auc_rs.pdf', width=6)
+g3
+```
+
+```{r}
+g4 <- ggplot(data=res) + geom_point(aes(x=rho, y=mu, color=AUC)) + theme_classic() + 
+  xlab(TeX('$\\rho')) + ylab(TeX('$\\mu / N$'))
+g4
+```
+
+```{r}
+g5 <- ggplot(data=res) + geom_point(aes(x=rho, y=beta, color=AUC)) + theme_classic() + 
+  xlab(TeX('$\\rho')) + ylab(TeX('$N \\beta'))
+g5
+```
+
+```{r}
+library(ggpubr)
+
+g <- ggarrange(g2, g1, g5, g4, labels=c("A", "B", "C", "D"), ncol=2  , nrow=2)
+ggsave("betamu_relation.pdf", width=8, height=6, dpi=300)
+g
+```
+

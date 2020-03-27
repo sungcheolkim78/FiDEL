@@ -1,0 +1,93 @@
+---
+title: "FD ensemble"
+author: "Sungcheol Kim"
+date: "3/25/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(FDclassifieR)
+```
+
+# FD Ensemble method
+
+```{r}
+auclist <- create.auclist(0.6, 0.7, 10)
+data_rank <- create_predictions(n=1000, auclist=auclist, p=0.1)
+```
+
+```{r}
+fde1 <- fde(data_rank$predictions)
+```
+
+## check correlation
+
+```{r}
+(cor_m <- cor(fde1@rank_matrix))
+```
+
+```{r}
+plot_cor(fde1, legend_flag=T)
+```
+
+# Aggregate predictions
+
+```{r}
+#fde1 <- calculate_performance(fde1, data_rank$actual_labels)
+fde1 <- predict_performance(fde1, auclist, 0.1)
+```
+
+```{r}
+(cor_m <- cor(fde1@logit_matrix))
+```
+
+## Logit distribution
+
+```{r}
+plot_Logit <- function(fde_d, idx) {
+  y <- fde_d@logit_matrix[, idx]
+  x <- rank(y)
+  plot(x, y, col='black', xlab = 'Rank', ylab='Logit')
+  points(x, fde_d@logit_matrix[, 1], col='gray')
+  points(x, fde_d@logit_matrix[, 2], col='blue')
+  points(x, fde_d@logit_matrix[, 3], col='green')
+  points(x, fde_d@logit_matrix[, 4], col='pink')
+  points(x, fde_d@estimated_logit, col='red')
+}
+
+plot_Logit(fde1, 2)
+```
+
+```{r}
+beta_en <- function(k) {
+  mean(fde1@rank_matrix[k,1:fde1@nmethods]*fde1@beta)/fde1@estimated_rank[k]
+}
+
+plot(sapply(1:fde1@nsamples, beta_en))
+```
+
+
+```{r}
+plot.scores(fde1@estimated_logit, data_rank$actual_labels)
+```
+
+```{r}
+plot.scores(fde1@estimated_logit, fde1@estimated_label)
+```
+
+```{r}
+plot_FDstatistics(fde1)
+```
+
+```{r}
+plot_single(fde1, "score", c=9)
+```
+
+```{r}
+plot_single(fde1, "pcr", c=9, n=100, m=300)
+```
+
+```{r}
+plot_single(fde1, "roc", c=9, n=100, m=300)
+```
