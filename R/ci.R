@@ -6,7 +6,7 @@
 # version 1.0
 # version 1.1 - using normalized beta, mu
 
-# Sampling Methods
+# Sampling Method
 countXY <- function(pcr_m, seed=1) {
   set.seed(seed)
   N <- length(pcr_m$prob)
@@ -88,135 +88,48 @@ Pxyy.sample <- function(pcr_m, iter=5000, debug.flag=FALSE) {
   return (res[length(res)])
 }
 
-# Summation of class probability at rank
-auc.Pxysum <- function(pcr_m, debug.flag=FALSE) {
-  check <- c("rank", "prob") %in% names(pcr_m)
-  stopifnot(all(check))
+# Integral method
+Pxy_int <- function(beta, mu, rho, resol=1e-6) {
+  tic(sprintf('... Pxy integral calculation with res = %.3g', resol))
+  ptable <- fermi.b(seq(0,1,by=resol), beta, mu)
 
-  probs <- pcr_m[order(pcr_m$rank, decreasing = FALSE), "prob"]
-  res <- outer(probs, 1 - probs, "*")
-  idx <- upper.tri(res)
+  A <- ptable
+  B <- rev(seq_along(ptable)) - rev(cumsum(rev(ptable)))
+  res <- sum(A * B) - sum(ptable * (1-ptable))
+  res <- res * resol * resol / (rho*(1-rho))
+  toc()
 
-  N <- length(pcr_m$prob)
-  N1 <- sum(pcr_m$prob)
-  N2 <- N - N1
-
-  if (debug.flag) {
-    image(res, useRaster=TRUE)
-    #image(idx, useRaster=TRUE)
-  }
-
-  return(sum(res[idx])/(N1*N2))
+  return(res)
 }
 
-Pxxy.sum <- function(pcr_m, debug.flag=FALSE) {
-  check <- c("rank", "prob") %in% names(pcr_m)
-  stopifnot(all(check))
+Pxxy_int <- function(beta, mu, rho, resol=1e-6) {
+  tic(sprintf('... Pxxy integral calculation with res = %.3g', resol))
+  ptable <- fermi.b(seq(0,1,by=resol), beta, mu)
 
-  res <- 0
-  N <- length(pcr_m$prob)
-  probs <- pcr_m[order(pcr_m$rank), "prob"]
+  A <- 2*ptable*cumsum(ptable) - ptable^2
+  B <- rev(seq_along(ptable)) - rev(cumsum(rev(ptable)))
+  res <- sum(A * B) - sum(ptable^2 * (1-ptable)) - sum(ptable^2) - 2*sum(ptable*(1-ptable))
+  res <- res * resol^3 / (rho^2 * (1-rho))
+  toc()
 
-  for (i in 1:N) {
-    for (j in 1:N) {
-      for (k in 1:N) {
-        if (k > max(c(i, j))) {
-          res <- res + probs[i]*probs[j]*(1-probs[k])
-        }
-      }
-    }
-  }
-
-  N1 <- sum(pcr_m$prob)
-  N2 <- N - N1
-
-  if (debug.flag) {
-    image(res, useRaster=TRUE)
-    #image(idx, useRaster=TRUE)
-  }
-
-  return(res/(N1*N1*N2))
+  return(res)
 }
 
-Pxxy.sum2 <- function(pcr_m, debug.flag=FALSE) {
-  check <- c("rank", "prob") %in% names(pcr_m)
-  stopifnot(all(check))
+Pxyy_int <- function(beta, mu, rho, resol=1e-6) {
+  tic(sprintf('... Pxyy integral calculation with res = %.3g', resol))
+  ptable <- fermi.b(seq(0,1,by=resol), beta, mu)
 
-  res <- 0
-  N <- length(pcr_m$prob)
-  probs <- pcr_m[order(pcr_m$rank), "prob"]
-  r2r3 <- outer(probs, 1 - probs, "*")
+  A <- ptable
+  B <- rev(cumsum(rev(1-ptable)))^2
+  res <- sum(A * B) - sum(ptable * (1-ptable)^2) - sum((1-ptable)^2) - 2*sum(ptable*(1-ptable))
+  res <- res * resol^3 / (rho * (1-rho)^2)
+  toc()
 
-  for (i in 1:N) {
-    idx <- upper.tri(r2r3, diag=TRUE)
-    idx[, 1:i] <- FALSE
-
-    res <- res + probs[i] * sum(r2r3[idx])
-  }
-
-  N1 <- sum(pcr_m$prob)
-  N2 <- N - N1
-
-  if (debug.flag) {
-    image(res, useRaster=TRUE)
-    #image(idx, useRaster=TRUE)
-  }
-
-  return(res/(N1*N1*N2))
-}
-
-Pxyy.sum <- function(pcr_m, debug.flag=FALSE) {
-  check <- c("rank", "prob") %in% names(pcr_m)
-  stopifnot(all(check))
-
-  N <- length(pcr_m$prob)
-  probs <- pcr_m[order(pcr_m$rank), "prob"]
-
-  pxyy <- function(i, j, k) {
-    if (i < min(c(j,k))) {
-      return (probs[i]*(1-probs[j])*(1-probs[k]))
-    }
-  }
-
-  res <- purrr::reduce(expand.grid(1:N, 1:N, 1:N), ~pxyy(..1, ..2, ..3))
-
-  N1 <- sum(pcr_m$prob)
-  N2 <- N - N1
-
-  return(res/(N1*N2*N2))
-}
-
-Pxyy.sum2 <- function(pcr_m, debug.flag=FALSE) {
-  check <- c("rank", "prob") %in% names(pcr_m)
-  stopifnot(all(check))
-
-  res <- 0
-  N <- length(pcr_m$prob)
-  probs <- pcr_m[order(pcr_m$rank), "prob"]
-  r2r3 <- outer(1 - probs, 1 - probs, "*")
-
-  for (i in 1:N) {
-    idx <- (r2r3 < 2)    # make all TRUE
-    idx[, 1:i] <- FALSE
-    idx[1:i, ] <- FALSE
-    diag(idx) <- FALSE
-
-    res <- res + probs[i] * sum(r2r3[idx])
-  }
-
-  N1 <- sum(pcr_m$prob)
-  N2 <- N - N1
-
-  if (debug.flag) {
-    image(res, useRaster=TRUE)
-    #image(idx, useRaster=TRUE)
-  }
-
-  return(res/(N1*N2*N2))
+  return(res)
 }
 
 # Confidence interval calculation
-var.auc <- function(pcr_m, method='Sampling', debug.flag=FALSE) {
+var_auc_pcr <- function(pcr_m, method='Sampling', debug.flag=FALSE) {
   N <- length(pcr_m$prob)
   N1 <- sum(pcr_m$prob)
   N2 <- N - N1
@@ -284,44 +197,4 @@ var_auc_fermi <- function(auc, rho, N=1000, iter=5000, method='sampling', debug.
   }
 
   return(c(var_auc=var_auc, Pxy=Pxy_value, Pxxy=Pxxy_value, Pxyy=Pxyy_value))
-}
-
-# Integral method
-Pxy_int <- function(beta, mu, rho, resol=1e-6) {
-  tic(sprintf('... Pxy integral calculation with res = %.3g', resol))
-  ptable <- fermi.b(seq(0,1,by=resol), beta, mu)
-
-  A <- ptable
-  B <- rev(seq_along(ptable)) - rev(cumsum(rev(ptable)))
-  res <- sum(A * B) - sum(ptable * (1-ptable))
-  res <- res * resol * resol / (rho*(1-rho))
-  toc()
-
-  return(res)
-}
-
-Pxxy_int <- function(beta, mu, rho, resol=1e-6) {
-  tic(sprintf('... Pxxy integral calculation with res = %.3g', resol))
-  ptable <- fermi.b(seq(0,1,by=resol), beta, mu)
-
-  A <- 2*ptable*cumsum(ptable) - ptable^2
-  B <- rev(seq_along(ptable)) - rev(cumsum(rev(ptable)))
-  res <- sum(A * B) - sum(ptable^2 * (1-ptable)) - sum(ptable^2) - 2*sum(ptable*(1-ptable))
-  res <- res * resol^3 / (rho^2 * (1-rho))
-  toc()
-
-  return(res)
-}
-
-Pxyy_int <- function(beta, mu, rho, resol=1e-6) {
-  tic(sprintf('... Pxyy integral calculation with res = %.3g', resol))
-  ptable <- fermi.b(seq(0,1,by=resol), beta, mu)
-
-  A <- ptable
-  B <- rev(cumsum(rev(1-ptable)))^2
-  res <- sum(A * B) - sum(ptable * (1-ptable)^2) - sum((1-ptable)^2) - 2*sum(ptable*(1-ptable))
-  res <- res * resol^3 / (rho * (1-rho)^2)
-  toc()
-
-  return(res)
 }
