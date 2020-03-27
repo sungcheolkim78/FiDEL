@@ -7,28 +7,26 @@
 # revision 1.1 - 2020/03/27 - separate trainer and FD ensemble
 
 library(caret)
-library(purrr)
 library(doParallel)
-library(tibble)
-library(rlist)
+library(tictoc)
 
 # mtrainer S3 object
 
 # initializer
-new_mtrainer <- function(x = list(), method = "plus", fitControl = NULL) {
+new_mtrainer <- function(x = list(), fitControl = NULL) {
   stopifnot(is.character(x))
-  method <- match.arg(method, c("plus", "default"))
 
   # prepare fitControl
   if (is.null(fitControl)) {
+    # prepare random seed
     set.seed(1)
     seeds <- vector(mode = "list", length = 51)
     for(i in 1:50) seeds[[i]] <- sample.int(1000, 22)
     seeds[[51]] <- sample.int(1000, 1)
 
-    fitControl <- trainControl(method = "repeatedcv", repeats = 5,
-                               classProbs = TRUE, summaryFunction = twoClassSummary,
-                               search = "random", seeds = seeds)
+    fitControl <- caret::trainControl(method = "repeatedcv", repeats = 5,
+                                      classProbs = TRUE, summaryFunction = twoClassSummary,
+                                      search = "random", seeds = seeds)
   }
 
   structure(list(modellist = x,
@@ -37,13 +35,12 @@ new_mtrainer <- function(x = list(), method = "plus", fitControl = NULL) {
                  control = fitControl,
                  fitlist = list(),
                  testlist = list(),
-                 testproblist = list(),
-                 roclist = list(),
-                 lambdalist = list(),
+                 predictions = list(),
+                 performances = list(),
                  testdata = list(),
-                 Y = list(),
-                 rho = numeric()),
-            method = method,
+                 actual_label = list(),
+                 rho = numeric(),
+                 nmethods = length(x)),
             class = "mtrainer")
 }
 
@@ -54,12 +51,13 @@ validate_mtrainer <- function(x) {
   if(!all(check)) {
     stop(paste0('unknown model name: ', x$modellist[!check], '\n'))
   }
+  x$nmethods <- length(x$modellist)
   x
 }
 
 # helper
-mtrainer <- function(x = list(), method = "plus", fitControl = NULL) {
-  validate_mtrainer(new_mtrainer(x, method, fitControl))
+mtrainer <- function(x = list(),fitControl = NULL) {
+  validate_mtrainer(new_mtrainer(x, fitControl))
 }
 
 # S3 method
@@ -95,47 +93,45 @@ train.mtrainer <- function(mtrainer, formula, data, update=FALSE, n_cores=-1) {
     }
   }
 
+  tic(cat('... train model with ', mtrainer$nmethods, ' algorithms\n'))
+
   cl <- makePSOCKcluster(n_cores)
   registerDoParallel(cl)
-  mtrainer$fitlist <- map(mtrainer$modellist, caret_train)
+  mtrainer$fitlist <- lapply(mtrainer$modellist, caret_train)
   stopCluster(cl)
 
   names(mtrainer$fitlist) <- mtrainer$modellist
+  toc()
+
   mtrainer
 }
 
-predict.mtrainer <- function(mtrainer, newdata = NULL, Y=NULL, alpha=1.0, newmodellist = NULL,
-                          method='mtrainer+') {
-  msg <- paste0('... predict using ', method, ' , alpha: ', alpha)
-  message(msg)
+predict.mtrainer <- function(mtrainer, newdata = NULL, Y=NULL, alpha=1.0, newmodellist = NULL) {
+  message(paste0('... predict using alpha: ', alpha))
 
   # check test data set
   if(!is.null(newdata)) mtrainer$testdata <- newdata
   stopifnot(length(mtrainer$testdata) > 0)
 
   # check test class data set
-  if(!is.null(Y)) mtrainer$Y <- Y
+  Y <- as_label(Y)
+  if(!is.null(Y)) mtrainer$Y <- as_label(Y)
   stopifnot(length(mtrainer$Y) > 0)
 
   # check models for training
   if(is.null(newmodellist)) newmodellist <- names(mtrainer$fitlist)
 
-  if(length(mtrainer$testlist) > 0) {
-    check <- newmodellist %in% names(mtrainer$testlist)
-    newmodellist <- newmodellist[check]
-    if (!all(newmodellist %in% mtrainer$modellist))
-      stop("Add model and train first")
-  } else {
-    message(paste0('... predict using initial ', length(mtrainer$fitlist), ' classifiers'))
-    check <- newmodellist == ' '
-    mtrainer$testlist <- map(mtrainer$fitlist, predict, newdata=mtrainer$testdata)
-    mtrainer$testproblist <- map(mtrainer$fitlist, predict, newdata=mtrainer$testdata, type='prob')
+  # build predictions
+  predictions <- matrix(nrow=length(Y), ncol=mtrainer$nmethods)
+  message(paste0('... predict using initial ', length(mtrainer$fitlist), ' classifiers'))
+  for (i in 1:mtrainer$nmethods) {
+    tmp <- predict(mtrainer$fitlist, newdata=mtrainer$testdata, type='prob')
+    predictions[,i] <- tmp[attr(Y, 'class1')]
   }
+  print(predictions)
 
   # Y should be factor
-  class1name = levels(mtrainer$Y)[[1]]
-  class2name = levels(mtrainer$Y)[[2]]
-  mtrainer$rho <- sum(mtrainer$Y == class1name)/length(mtrainer$Y)
+  mtrainer$rho <- attr(Y, 'rho')
 
   # create probability matrix
   if (any(!check)) {
@@ -145,27 +141,13 @@ predict.mtrainer <- function(mtrainer, newdata = NULL, Y=NULL, alpha=1.0, newmod
   }
 
   # create roc, labmda, rstar list
-  mtrainer$roclist <- map(mtrainer$testproblist, rocrank, reference = mtrainer$Y)
-  mtrainer$lambdalist <- map(mtrainer$roclist, lambda_fromROC, N=length(mtrainer$Y), rho=mtrainer$rho)
+  mtrainer$roclist <- map(mtrainer$testproblist, auc.rank, mtrainer$Y)
 
   # calculate new score using mtrainer algorithm
-  if (method == 'mtrainer')
-    res <- cal_score_mtrainer(mtrainer, newmodellist = newmodellist)
-  else
-    res <- cal_score_mtrainerp(mtrainer, alpha = alpha, newmodellist = newmodellist)
-  if (alpha > 1) method <- paste0('mtrainer+', alpha)
+  fde1 <- fde(mtrainer$testproblist)
+  fde1 <- predict_performance(fde1, mtrainer$auclist, mtrainer$rho)
 
-  # add results
-  mtrainer$testlist[[method]] <- as.factor(ifelse(res > 0, class2name, class1name))
-  mtrainer$testproblist[[method]] <- data.frame(1/(1 + exp(res)), 1/(1+exp(-res)))
-  names(mtrainer$testproblist[[method]]) <- c(class1name, class2name)
-
-  mtrainer$roclist[method] <- rocrank(mtrainer$testproblist[[method]], reference = mtrainer$Y)
-  mtrainer$lambdalist[[method]] <- lambda_fromROC(mtrainer$roclist[[method]], N=length(mtrainer$Y), rho=mtrainer$rho)
-  mtrainer$confmatrix <- map(mtrainer$testlist, confusionMatrix, reference = mtrainer$Y)
-  mtrainer$modelInfo$modelcheck <- names(mtrainer$roclist) %in% c(newmodellist, method)
-
-  mtrainer
+  return (fde1)
 }
 
 plot.mtrainer <- function(mtrainer) {
@@ -174,10 +156,10 @@ plot.mtrainer <- function(mtrainer) {
 }
 
 print.mtrainer <- function(mtrainer, full=TRUE) {
-  print(mtrainerry.mtrainer(mtrainer, full=full))
+  print(summary.mtrainer(mtrainer, full=full))
 }
 
-mtrainerry.mtrainer <- function(mtrainer, full=TRUE) {
+summary.mtrainer <- function(mtrainer, full=TRUE) {
   # collect informations
   ROC <- unlist(mtrainer$roclist)
   l1 <- map_dbl(mtrainer$lambdalist, 1)
