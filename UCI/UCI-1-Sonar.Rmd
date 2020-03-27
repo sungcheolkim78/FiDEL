@@ -9,6 +9,7 @@ output: html_notebook
 
 ```{r}
 library(mlbench)
+library(FDclassifieR)
 ```
 
 ```{r}
