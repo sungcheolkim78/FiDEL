@@ -25,18 +25,26 @@ create.labels <- function(N=100, rho=0.5) {
 
 as_label <- function(ylist, class1=NULL) {
   if (any('label' %in% class(ylist))) return(ylist)
-
   ylist <- as.factor(ylist)
+
   llist <- labels(ylist)
+  print(llist)
+  if (is.null(class1)) {
+    class1 <- llist[[1]]
+    class2 <- llist[[2]]
+  } else {
+    class2 <- llist[llist != class1]
+  }
+  print(class1)
+  print(class2)
 
-  if (is.null(class1)) rho <- sum(ylist == llist[[1]])/length(ylist)
-  else rho <- sum(ylist == class1)/length(ylist)
-
-  attr(ylist, 'class1') <- llist[[1]]
-  attr(ylist, 'class2') <- llist[[2]]
+  attr(ylist, 'class1') <- class1
+  attr(ylist, 'class2') <- class2
   attr(ylist, 'N') <- length(ylist)
-  attr(ylist, 'rho') <- rho
+  attr(ylist, 'rho') <- sum(ylist == class1)/length(ylist)
   attr(ylist, 'class') <- c('factor', 'label')
+
+  return(ylist)
 }
 
 # binary classifier using Gaussian score distribution
