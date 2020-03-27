@@ -1,0 +1,146 @@
+---
+title: "Data_set_2 - Abalone"
+author: "Sungcheol Kim"
+date: "12/5/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(mlbench)
+library(caret)
+library(AppliedPredictiveModeling)
+library(dplyr)
+
+source('rprob.R')
+```
+
+## Abalone data
+```{r}
+prepareData <- function() {
+  data(abalone)
+  
+  abaloneY <- abalone %>%
+    filter(Rings < 8 | Rings > 12) %>%
+    mutate(age=case_when(
+      Rings %in% 1:7 ~ 'young',
+      Rings %in% 13:30 ~ 'old'
+    ))
+  
+  abaloneY <- abaloneY[ , -9]
+  abaloneY$age <- as.factor(abaloneY$age)
+  return(abaloneY)
+}
+
+abaloneY <- prepareData()
+
+#df <- abaloneY[, 2:8]
+#autoplot(prcomp(df), data=abaloneY, colour = 'age', loadings = T, loadings.colour = 'blue', loadings.label = T, loadings.label.size = 3, loadings.label.colour = 'black')
+```
+
+```{r}
+fitControl <- trainControl(method = "repeatedcv",
+                           number = 10,
+                           repeats = 10,
+                           ## Estimate class probabilities
+                           classProbs = TRUE,
+                           ## Evaluate performance using 
+                           ## the following function
+                           summaryFunction = twoClassSummary)
+
+gbmGrid <-  expand.grid(interaction.depth = 5:7, 
+                        n.trees = (1:5)*50, 
+                        shrinkage = 0.1,
+                        n.minobsinnode = 20)
+
+#set.seed(998)
+inTraining <- createDataPartition(abaloneY$age, p = .75, list = FALSE)
+training <- abaloneY[ inTraining,]
+testing  <- abaloneY[-inTraining,]
+```
+
+```{r}
+gbmFit <- train.gbm(age ~ ., training, fitControl, gbmGrid)
+svmFit <- train.svm(age ~ ., training, fitControl, 8)
+rdaFit <- train.rda(age ~ ., training, fitControl, 4)
+plsFit <- train.pls(age ~ ., training, fitControl, 8)
+```
+
+### check parameter fitting
+
+```{r}
+ggplot(gbmFit)
+ggplot(svmFit)
+ggplot(rdaFit)
+ggplot(plsFit)
+```
+
+### Select best parameters
+
+```{r, fig.width=4, fig.height=3}
+pdf('Data2-ROC-svm.pdf', width = 6, height = 6)
+roc.svm <- modelplot.roc(svmFit, testing, testing$age)
+dev.off()
+
+pdf('Data2-ROC-gbm.pdf', width = 6, height = 6)
+roc.gbm <- modelplot.roc(gbmFit, testing, testing$age)
+dev.off()
+
+pdf('Data2-ROC-rda.pdf', width = 6, height = 6)
+roc.rda <- modelplot.roc(rdaFit, testing, testing$age)
+dev.off()
+
+pdf('Data2-ROC-pls.pdf', width = 6, height = 6)
+pls.rda <- modelplot.roc(plsFit, testing, testing$age)
+dev.off()
+```
+
+## Calculate Rank
+
+```{r}
+a <- modelplot.rank(list(gbmFit, svmFit, rdaFit, plsFit), testing)
+a
+```
+
+## Rank class probability
+
+```{r}
+rprob.gbm <- iterate.model('gbm', abaloneY, abaloneY$age, age~., 10, gbmFit$bestTune)
+lambda.gbm <- fitFD(rprob.gbm, 'gbm 10 iter', abaloneY$age)
+```
+
+```{r}
+rprob.svm <- iterate.model('svm', abaloneY, abaloneY$age, age~., 10, svmFit$bestTune)
+lambda.svm <- fitFD(rprob.svm, 'svm 10 iter', abaloneY$age)
+```
+
+```{r}
+rprob.rda <- iterate.model('rda', abaloneY, abaloneY$age, age~., 10, rdaFit$bestTune)
+lambda.rda <- fitFD(rprob.rda, 'rda 10 iter', abaloneY$age)
+```
+
+```{r}
+rprob.pls <- iterate.model('pls', abaloneY, abaloneY$age, age~., 10, plsFit$bestTune)
+lambda.pls <- fitFD(rprob.pls, 'pls 10 iter', abaloneY$age)
+```
+
+## SUMMA+
+
+```{r}
+gbmFit$lambda <- lambda.gbm
+svmFit$lambda <- lambda.svm
+rdaFit$lambda <- lambda.rda
+plsFit$lambda <- lambda.pls
+```
+
+```{r}
+source('rprob.R')
+summa.prob <- summaplus.predict(list(gbmFit, svmFit, rdaFit, plsFit), testing, testing$age)
+```
+
+```{r}
+#pdf('Data2-ROC-summa+.pdf', width=6, height=6)
+summa.roc <- modelplot.roc(summa.prob, testing, testing$age, is.model=FALSE)
+#dev.off()
+```

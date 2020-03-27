@@ -1,0 +1,68 @@
+---
+title: "UCI Sonar"
+output: html_notebook
+---
+
+# ML training (Sonar)
+
+## Preparations
+
+```{r}
+library(mlbench)
+```
+
+```{r}
+#set.seed(1024)
+data(Sonar)
+inTraining0 <- createDataPartition(Sonar$Class, p = .75, list = FALSE)
+training <- Sonar[ inTraining0,]
+testing  <- Sonar[-inTraining0,]
+testingY <- Sonar[-inTraining0, ncol(Sonar)]
+```
+
+```{r}
+t1 <- mtrainer(c('nnet', 'rda', 'ctree'))
+```
+
+```{r}
+t1 <- train(t1, Class~., training, update=F)
+```
+
+```{r}
+s1 <- addmodel.summa(s1, c('C5.0', 'gbm'))
+s1 <- train(s1, Class~., training, update=F)
+```
+
+```{r}
+plot(s1)
+```
+
+```{r}
+(s1 <- predict(s1, newdata=testing, alpha=1, Y=testingY))
+```
+
+```{r}
+s2 <- predict(s1, testing, newmodellist = c('nnet', 'pls', 'ctree', 'knn', 'earth', 'avNNet'), alpha=11, Y=testingY)
+```
+
+```{r}
+print(s1)
+```
+
+```{r}
+predict(s1, alpha=13)
+```
+
+```{r}
+(ss <- summary(s1))
+ggplot(ss, aes(model, rs)) + geom_boxplot()
+```
+
+```{r}
+res <- cal_score(s1, view=T)
+```
+
+```{r}
+s1$modellist
+```
+

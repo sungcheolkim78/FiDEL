@@ -1,0 +1,207 @@
+---
+title: "Data Set Report"
+output: 
+  pdf_document:
+    highlight: zenburn
+    toc: yes
+---
+
+```{r}
+library(purrr)
+source('r_summa.R')
+```
+
+
+```{r}
+fname <- function(x) paste0('data/DS1_partition', x, '_summa.RData')
+flist <- purrr::map(1:10, fname)
+ss1 <- purrr::map(flist, readRDS)
+```
+
+```{r}
+generate_plot(ss1, method='summa', dataname = '1')
+```
+
+```{r}
+alpha <- 1
+
+ss1 <- map(ss1, predict, alpha=alpha)
+re1 <- ss1 %>%
+  map(summary.summa, full=FALSE) %>%
+  reduce(rbind)
+
+re1
+```
+
+```{r}
+g <- ggplot(re1) + geom_point(aes(ROC, l2, color=model)) +
+  ggtitle('Data Set 1') + geom_text(x=0.6, y=0.02, label = sprintf('rho: %.4f', ss1[[1]]$rho))
+ggsave('DS1_roc_l2.pdf')
+g
+```
+
+```{r}
+fname <- function(x) paste0('data/DS2_partition', x, '_summa.RData')
+flist <- purrr::map(1:10, fname)
+ss2 <- purrr::map(flist, readRDS)
+```
+
+```{r}
+generate_plot(ss2, alpha=1, dataname = '2')
+```
+
+```{r}
+nml <- c("rda", "pls", "C5.0", "ctree", "knn", "rpart")
+generate_plot(ss2, method='summa', dataname = '2', newmodellist = nml)
+```
+
+```{r}
+alpha <- 1
+
+ss2 <- map(ss2, predict, alpha=alpha)
+re2 <- ss2 %>%
+  map(summary.summa, full=FALSE) %>%
+  reduce(rbind)
+
+re2
+```
+
+```{r}
+ggplot(re2) + geom_point(aes(ROC, l2, color=model)) +
+  ggtitle('Data Set 2') + geom_text(x=0.6, y=0.02, label=sprintf("rho: %.4f", ss2[[1]]$rho))
+ggsave('DS2_roc_l2.pdf')
+```
+
+```{r}
+fname <- function(x) paste0('data/DS3_partition', x, '_summa.RData')
+flist <- purrr::map(1:10, fname)
+ss3 <- purrr::map(flist, readRDS)
+```
+
+```{r}
+generate_plot(ss3, method='summa', dataname = '3')
+```
+
+```{r}
+nml <- c("nnet", "pls", "ctree", "gbm", "avNNet", "rpart", "bayesglm", "rda", "earth")
+generate_plot(ss3, method='summa+', alpha=5, dataname='3', newmodellist = nml)
+```
+
+```{r}
+alpha <- 1
+
+nml <- c("nnet", "pls", "ctree", "gbm", "avNNet", "rpart", "bayesglm", "rda", "earth")
+ss3 <- map(ss3, predict, alpha=alpha, newmodellist = nml)
+re3 <- ss3 %>%
+  map(summary.summa, full=FALSE) %>%
+  reduce(rbind)
+
+re3
+```
+
+```{r}
+ggplot(re3) + geom_point(aes(ROC, l2, color=model)) +
+  ggtitle('Data Set 3') + geom_text(x=0.85, y=0.6, label=sprintf('rho: %.4f', ss3[[1]]$rho))
+ggsave('DS3_roc_l2.pdf')
+```
+
+```{r}
+fname <- function(x) paste0('data/DS4_partition', x, '_summa.RData')
+flist <- purrr::map(1:10, fname)
+ss4 <- purrr::map(flist, readRDS)
+```
+
+```{r}
+generate_plot(ss4, alpha=1, dataname = '4')
+```
+
+```{r}
+nml <- c("nnet", "pls", "ctree", "gbm", "avNNet", "rpart", "bayesglm")
+generate_plot(ss4, method='summa', dataname='4', newmodellist = nml)
+```
+```{r}
+alpha <- 1
+
+nml <- c("nnet", "pls", "ctree", "gbm", "avNNet", "rpart", "bayesglm")
+ss4 <- map(ss4, predict, alpha=alpha, newmodellist = nml)
+re4 <- ss4 %>%
+  map(summary.summa, full=FALSE) %>%
+  reduce(rbind)
+
+re4
+```
+
+```{r}
+ggplot(re4) + geom_point(aes(ROC, rs, color=model)) +
+  ggtitle('Data Set 4') + geom_text(x=0.85, y=0.6, label=sprintf('rho: %.4f', ss4[[1]]$rho))
+ggsave('DS4_roc_rs.pdf')
+```
+
+```{r}
+fname <- function(x) paste0('data/DS5_partition', x, '_summa.RData')
+flist <- purrr::map(1:10, fname)
+ss5 <- purrr::map(flist, readRDS)
+```
+
+```{r}
+generate_plot(ss5, alpha=1, dataname = '5')
+```
+
+```{r}
+nml <- c("nnet", "rda", "pls","C5.0", "ctree", "gbm","avNNet", "rpart", "bayesglm", "earth")
+generate_plot(ss5, method='summa', dataname = '5', newmodellist = nml)
+```
+
+
+```{r}
+alpha <- 1
+
+ss5 <- map(ss5, predict, alpha=alpha, newmodellist=NULL)
+re5 <- ss5 %>% 
+  map(summary.summa, full=FALSE) %>%
+  reduce(rbind)
+
+re5
+```
+
+
+```{r}
+ggplot(re5) + geom_point(aes(ROC, l2, color=model)) +
+  ggtitle('Data Set 5')
+ggsave('DS5_ROC_l2.pdf')
+```
+
+```{r}
+ROCs <- 0.5 + (0:19)*0.025
+
+generate_lambda <- function(ROCs, f, N=N, rho=rho, method='approx') {
+  res <- map(ROCs, f, N=N, rho=rho)
+  roctable <- as.data.frame(reduce(res, rbind))
+  roctable$ROC <- ROCs
+  roctable$method <- method
+  roctable$N <- N
+  roctable$rho <- rho
+  roctable  
+}
+
+roctable1 <- generate_lambda(ROCs, lambda_fromROC_appr, N=100, rho=0.35, method='approx')
+roctable2 <- generate_lambda(ROCs, lambda_fromROC, N=100, rho=0.35, method='optim')
+
+```
+
+```{r}
+g <- ggplot(roctable1) + geom_line(aes(x=ROC, y=l1, color=method)) + 
+  geom_line(aes(x=ROC, y=l1low)) + geom_line(aes(x=ROC, y=l1high))
+g <- g + geom_point(data=roctable2, aes(x=ROC, y=l1, color=method))
+ggsave('comparison-approx-optim-l1-rho0.35.pdf')
+g
+```
+
+```{r}
+g <- ggplot(roctable1) + geom_line(aes(x=ROC, y=l2, color=method)) + 
+    geom_line(aes(x=ROC, y=l2low)) + geom_line(aes(x=ROC, y=l2high)) +
+    geom_point(data=roctable2, aes(x=ROC, y=l2, color=method))
+ggsave('comparison-approx-optim-l2-rho0.35.pdf')
+g
+```
+
