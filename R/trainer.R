@@ -7,28 +7,26 @@
 # revision 1.1 - 2020/03/27 - separate trainer and FD ensemble
 
 library(caret)
-library(purrr)
 library(doParallel)
-library(tibble)
-library(rlist)
+library(tictoc)
 
 # mtrainer S3 object
 
 # initializer
-new_mtrainer <- function(x = list(), method = "plus", fitControl = NULL) {
+new_mtrainer <- function(x = list(), fitControl = NULL) {
   stopifnot(is.character(x))
-  method <- match.arg(method, c("plus", "default"))
 
   # prepare fitControl
   if (is.null(fitControl)) {
+    # prepare random seed
     set.seed(1)
     seeds <- vector(mode = "list", length = 51)
     for(i in 1:50) seeds[[i]] <- sample.int(1000, 22)
     seeds[[51]] <- sample.int(1000, 1)
 
-    fitControl <- trainControl(method = "repeatedcv", repeats = 5,
-                               classProbs = TRUE, summaryFunction = twoClassSummary,
-                               search = "random", seeds = seeds)
+    fitControl <- caret::trainControl(method = "repeatedcv", repeats = 5,
+                                      classProbs = TRUE, summaryFunction = twoClassSummary,
+                                      search = "random", seeds = seeds)
   }
 
   structure(list(modellist = x,
@@ -41,8 +39,8 @@ new_mtrainer <- function(x = list(), method = "plus", fitControl = NULL) {
                  performances = list(),
                  testdata = list(),
                  actual_label = list(),
-                 rho = numeric()),
-            method = method,
+                 rho = numeric(),
+                 nmethods = length(x)),
             class = "mtrainer")
 }
 
@@ -53,12 +51,13 @@ validate_mtrainer <- function(x) {
   if(!all(check)) {
     stop(paste0('unknown model name: ', x$modellist[!check], '\n'))
   }
+  x$nmethods <- length(x$modellist)
   x
 }
 
 # helper
-mtrainer <- function(x = list(), method = "plus", fitControl = NULL) {
-  validate_mtrainer(new_mtrainer(x, method, fitControl))
+mtrainer <- function(x = list(),fitControl = NULL) {
+  validate_mtrainer(new_mtrainer(x, fitControl))
 }
 
 # S3 method
@@ -94,43 +93,42 @@ train.mtrainer <- function(mtrainer, formula, data, update=FALSE, n_cores=-1) {
     }
   }
 
+  tic(cat('... train model with ', mtrainer$nmethods, ' algorithms\n'))
+
   cl <- makePSOCKcluster(n_cores)
   registerDoParallel(cl)
-  mtrainer$fitlist <- map(mtrainer$modellist, caret_train)
+  mtrainer$fitlist <- lapply(mtrainer$modellist, caret_train)
   stopCluster(cl)
 
   names(mtrainer$fitlist) <- mtrainer$modellist
+  toc()
+
   mtrainer
 }
 
-predict.mtrainer <- function(mtrainer, newdata = NULL, Y=NULL, alpha=1.0, newmodellist = NULL,
-                          method='mtrainer+') {
-  msg <- paste0('... predict using ', method, ' , alpha: ', alpha)
-  message(msg)
+predict.mtrainer <- function(mtrainer, newdata = NULL, Y=NULL, alpha=1.0, newmodellist = NULL) {
+  message(paste0('... predict using alpha: ', alpha))
 
   # check test data set
   if(!is.null(newdata)) mtrainer$testdata <- newdata
   stopifnot(length(mtrainer$testdata) > 0)
 
   # check test class data set
+  Y <- as_label(Y)
   if(!is.null(Y)) mtrainer$Y <- as_label(Y)
   stopifnot(length(mtrainer$Y) > 0)
 
   # check models for training
   if(is.null(newmodellist)) newmodellist <- names(mtrainer$fitlist)
 
-  if(length(mtrainer$testlist) > 0) {
-    check <- newmodellist %in% names(mtrainer$testlist)
-    newmodellist <- newmodellist[check]
-    if (!all(newmodellist %in% mtrainer$modellist))
-      stop("Add model and train first")
-  } else {
-    message(paste0('... predict using initial ', length(mtrainer$fitlist), ' classifiers'))
-    check <- newmodellist == ' '
-    mtrainer$testlist <- map(mtrainer$fitlist, predict, newdata=mtrainer$testdata)
-    mtrainer$predictions <- apply(mtrainer$fitlist, predict, newdata=mtrainer$testdata, type='prob')[[1]]
+  # build predictions
+  predictions <- matrix(nrow=length(Y), ncol=mtrainer$nmethods)
+  message(paste0('... predict using initial ', length(mtrainer$fitlist), ' classifiers'))
+  for (i in 1:mtrainer$nmethods) {
+    tmp <- predict(mtrainer$fitlist, newdata=mtrainer$testdata, type='prob')
+    predictions[,i] <- tmp[attr(Y, 'class1')]
   }
-  print(mtrainer$predictions)
+  print(predictions)
 
   # Y should be factor
   mtrainer$rho <- attr(Y, 'rho')
