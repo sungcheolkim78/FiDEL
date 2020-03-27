@@ -306,7 +306,7 @@ Pxxy_int <- function(beta, mu, rho, resol=1e-6) {
 
   A <- 2*ptable*cumsum(ptable) - ptable^2
   B <- rev(seq_along(ptable)) - rev(cumsum(rev(ptable)))
-  res <- sum(A * B) - sum(ptable^2 * (1-ptable)) - sum(ptable^2) - 2*sum(ptable*(1-ptable))
+  res <- sum(A * B) + 2*sum(ptable^2 * (1-ptable)) - sum(ptable^2) - 2*sum(ptable*(1-ptable))
   res <- res * resol^3 / (rho^2 * (1-rho))
   toc()
 
@@ -319,7 +319,7 @@ Pxyy_int <- function(beta, mu, rho, resol=1e-6) {
 
   A <- ptable
   B <- rev(cumsum(rev(1-ptable)))^2
-  res <- sum(A * B) - sum(ptable * (1-ptable)^2) - sum((1-ptable)^2) - 2*sum(ptable*(1-ptable))
+  res <- sum(A * B) + 2*sum(ptable * (1-ptable)^2) - sum((1-ptable)^2) - 2*sum(ptable*(1-ptable))
   res <- res * resol^3 / (rho * (1-rho)^2)
   toc()
 
