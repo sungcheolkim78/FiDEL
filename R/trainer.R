@@ -100,12 +100,14 @@ train.mtrainer <- function(mtrainer, formula, data, update=FALSE, n_cores=-1) {
       mtrainer$fitlist[[method]]
     } else {
       #set.seed(1024)
-      if (method %in% c('gbm', 'nnet'))
+      if (method %in% c('gbm', 'nnet')) {
         caret::train(formula, data=data, method=method, trControl=mtrainer$control,
                      metric="ROC", tuneLength=4, preProc = c("center", "scale"), verbose=FALSE)
-      else
+      }
+      else {
         caret::train(formula, data=data, method=method, trControl=mtrainer$control,
                      metric="ROC", tuneLength=4, preProc = c("center", "scale"))
+      }
     }
   }
 
@@ -117,6 +119,7 @@ train.mtrainer <- function(mtrainer, formula, data, update=FALSE, n_cores=-1) {
   stopCluster(cl)
 
   names(mtrainer$fitlist) <- mtrainer$model_list
+  mtrainer$nmethods <- length(mtrainer$fitlist)
   toc()
 
   mtrainer

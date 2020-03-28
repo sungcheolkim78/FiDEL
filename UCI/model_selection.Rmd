@@ -30,7 +30,7 @@ pool <- all[all != start]
 nextMods <- maxDissim(regModels[start,,drop = FALSE], 
                       regModels[pool, ], 
                       method = "Jaccard",
-                      n = 4)
+                      n = 10)
 
 rownames(regModels)[c(start, nextMods)]
 ```

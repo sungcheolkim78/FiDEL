@@ -1,0 +1,146 @@
+---
+title: "UCI 5 - Mushroom"
+author: "Sungcheol Kim"
+date: "12/19/2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(FDclassifieR)
+```
+
+## Prepare Data
+
+```{r}
+tmp <- read.csv('data/agaricus-lepiota.data', na.strings = '?')
+tmp_names <- c('class', 'cap-shape', 'cap-surface', 'cap-color', 'bruises?', 'odor', 
+               'gill-attachment', 'gill-spacing', 'gill-size', 'gill-color', 
+               'stalk-shape', 'stalk-root', 'stalk-surface-above-ring', 'stalk-surface-below-ring',
+               'stalk-color-above-ring', 'stalk-color-below-ring', 'veil-type', 'veil-color',
+               'ring-number', 'ring-type', 'spore-print-color', 'population', 'habitat')
+names(tmp)<- tmp_names
+```
+
+```{r}
+
+# choose only 'CYT' and 'NUC', ignore SequnceName
+Mushroom <- tmp[,2:ncol(tmp)]
+Mushroom <- Mushroom[, -16]
+Mushroom$Class <- as.factor(ifelse(tmp[,1] == 'e', 'edible', 'poisonous'))
+
+inTraining0 <- createDataPartition(Mushroom$Class, p = .75, list = FALSE)
+training <- Mushroom[ inTraining0,]
+testing  <- Mushroom[-inTraining0,]
+testingY <- as_label(Mushroom[-inTraining0, ncol(Mushroom)])
+```
+
+```{r}
+table(Mushroom[ inTraining0, ncol(Mushroom)])
+```
+
+# Data analysis
+
+```{r}
+pca <- princomp(Mushroom[, -23], cor=T) # principal components analysis using correlation matrix
+pc.comp <- pca$scores
+PrincipalComponent1 <- -1*pc.comp[,1] # principal component 1 scores (negated for convenience)
+PrincipalComponent2 <- -1*pc.comp[,2] # principal component 2 scores (negated for convenience)
+clustering.data <- cbind(PrincipalComponent1, PrincipalComponent2)
+```
+
+## K-Mean Clustering
+
+```{r}
+set.seed(100)
+km <- kmeans(clustering.data, 8, iter.max = 30, nstart=30)
+#km
+km$cluster
+plot(PrincipalComponent1, PrincipalComponent2, col=km$cluster)
+points(km$centers, pch=16)
+
+aggregate(tmp[, 2:9],by=list(km$cluster),mean)
+table(km$cluster, tmp$LocalizationSite)
+```
+
+## Spectral Clustering
+
+```{r}
+library(kknn)
+cl   <- specClust(clustering.data, centers=8, nn=50, iter.max=100) 
+#cl
+plot(PrincipalComponent1, PrincipalComponent2, col=cl$cluster)
+
+table(cl$cluster, tmp$LocalizationSite)
+
+aggregate(tmp[, 2:9],by=list(cl$cluster),mean)
+```
+
+## Hierarchical Clustering
+
+```{r}
+d_yeast<- dist(clustering.data)
+hclusters <- hclust(d_yeast, method = "average")
+clusterCut <- cutree(hclusters, 8)
+#clusterCut
+table(clusterCut, tmp$LocalizationSite)
+aggregate(tmp[, 2:9],by=list(clusterCut),mean)
+
+plot(PrincipalComponent1, PrincipalComponent2, col=clusterCut)
+```
+
+# Train models
+
+```{r}
+t1 <- mtrainer(c('nnet', 'rda')) %>%
+  train(Class~., training, update=F) %>%
+  predict(newdata=testing)
+```
+
+```{r}
+plot(t1)
+```
+
+```{r}
+summary(s1)
+```
+
+
+```{r}
+t1 <- t1 %>%
+  addmodel.mtrainer(c('ctree', 'C5.0', 'gbm')) %>%
+  train(Site~., training) %>%
+  predict(newdata=testing)
+```
+
+```{r}
+#t1 <- predict(t1, newdata=testing)
+auclist <- apply(t1$predictions, 2, auc.rank, testingY)
+
+fde1 <- fde(t1$predictions)
+fde1 <- predict_performance(fde1, auclist, attr(testingY, 'rho'))
+```
+
+```{r}
+plot_cor(fde1, legend_flag = T)
+```
+
+```{r}
+fde1 <- fde(t1$predictions, testingY)
+```
+
+```{r}
+plot_single(fde1, 'score')
+```
+
+```{r}
+store.mtrainer(t1, 'yeast_m8_pre.RData')
+saveRDS(testingY, 'yeast_m8_y.RData')
+```
+
+```{r}
+saveRDS(t1, 'yeast_all.RData')
+```

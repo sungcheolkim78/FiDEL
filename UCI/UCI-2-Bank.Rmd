@@ -41,8 +41,9 @@ t1 <- t1 %>%
 
 ```{r}
 t1 <- t1 %>%
-  addmodel.mtrainer(c('svmLinear', 'svmRadial', 'pls', 'knn', 'earth', 'avNNet')) %>%
-  train(y~., training, update=F)
+  addmodel.mtrainer(c('svmLinear', 'svmRadial', 'pls', 'earth', 'avNNet')) %>%
+  train(y~., training, update=F) %>%
+  predict(newdata=testingY)
 ```
 
 ### Select best parameters
