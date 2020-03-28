@@ -1,0 +1,143 @@
+---
+title: "UCI 4 - Yeast"
+author: "Sungcheol Kim"
+date: "12/19/2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(FDclassifieR)
+```
+
+## Prepare Data
+
+```{r}
+#yeast <- read_table(url("http://archive.ics.uci.edu/ml/machine-learning-databases/yeast/yeast.data"))
+tmp <- read.table('yeast.csv')
+names(tmp)<- c("SequenceName", "mcg", "gvh", "alm", 
+               "mit", "erl", "pox", "vac", "nuc", "LocalizationSite")
+
+#head(tmp)
+#table(tmp$LocalizationSite)
+
+# choose only 'CYT' and 'NUC', ignore SequnceName
+Yeast <- tmp[tmp$LocalizationSite %in% c('CYT', 'NUC'), 2:10]
+names(Yeast)[ncol(Yeast)] <- 'Site'
+Yeast$Site <- factor(Yeast$Site, c('CYT', 'NUC'))
+
+inTraining0 <- createDataPartition(Yeast$Site, p = .75, list = FALSE)
+training <- Yeast[ inTraining0,]
+testing  <- Yeast[-inTraining0,]
+testingY <- as_label(Yeast[-inTraining0, ncol(Yeast)])
+```
+
+```{r}
+table(Yeast[ inTraining0, ncol(Yeast)])
+```
+
+# Data analysis
+
+```{r}
+pca <- princomp(tmp[, 2:9], cor=T) # principal components analysis using correlation matrix
+pc.comp <- pca$scores
+PrincipalComponent1 <- -1*pc.comp[,1] # principal component 1 scores (negated for convenience)
+PrincipalComponent2 <- -1*pc.comp[,2] # principal component 2 scores (negated for convenience)
+clustering.data <- cbind(PrincipalComponent1, PrincipalComponent2)
+```
+
+## K-Mean Clustering
+
+```{r}
+set.seed(100)
+km <- kmeans(clustering.data, 8, iter.max = 30, nstart=30)
+#km
+km$cluster
+plot(PrincipalComponent1, PrincipalComponent2, col=km$cluster)
+points(km$centers, pch=16)
+
+aggregate(tmp[, 2:9],by=list(km$cluster),mean)
+table(km$cluster, tmp$LocalizationSite)
+```
+
+## Spectral Clustering
+
+```{r}
+library(kknn)
+cl   <- specClust(clustering.data, centers=8, nn=50, iter.max=100) 
+#cl
+plot(PrincipalComponent1, PrincipalComponent2, col=cl$cluster)
+
+table(cl$cluster, tmp$LocalizationSite)
+
+aggregate(tmp[, 2:9],by=list(cl$cluster),mean)
+```
+
+## Hierarchical Clustering
+
+```{r}
+d_yeast<- dist(clustering.data)
+hclusters <- hclust(d_yeast, method = "average")
+clusterCut <- cutree(hclusters, 8)
+#clusterCut
+table(clusterCut, tmp$LocalizationSite)
+aggregate(tmp[, 2:9],by=list(clusterCut),mean)
+
+plot(PrincipalComponent1, PrincipalComponent2, col=clusterCut)
+```
+
+# Train models
+
+```{r}
+t1 <- mtrainer(c('nnet', 'rda')) %>%
+  train(Site~., training, update=F) %>%
+  predict(newdata=testing)
+```
+
+```{r}
+plot(t1)
+```
+
+```{r}
+summary(s1)
+```
+
+
+```{r}
+t1 <- t1 %>%
+  addmodel.mtrainer(c('ctree', 'C5.0', 'gbm')) %>%
+  train(Site~., training) %>%
+  predict(newdata=testing)
+```
+
+```{r}
+#t1 <- predict(t1, newdata=testing)
+auclist <- apply(t1$predictions, 2, auc.rank, testingY)
+
+fde1 <- fde(t1$predictions)
+fde1 <- predict_performance(fde1, auclist, attr(testingY, 'rho'))
+```
+
+```{r}
+plot_cor(fde1, legend_flag = T)
+```
+
+```{r}
+fde1 <- fde(t1$predictions, testingY)
+```
+
+```{r}
+plot_single(fde1, 'score')
+```
+
+```{r}
+store.mtrainer(t1, 'yeast_m8_pre.RData')
+saveRDS(testingY, 'yeast_m8_y.RData')
+```
+
+```{r}
+saveRDS(t1, 'yeast_all.RData')
+```

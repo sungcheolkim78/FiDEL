@@ -1,0 +1,87 @@
+---
+title: "UCI - Ionosphere"
+author: "Sungcheol Kim"
+date: "12/19/2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(mlbench)
+
+library(FDclassifieR)
+```
+
+## Prepare Data
+
+```{r}
+data(Ionosphere)
+
+Iono <- Ionosphere
+Iono <- Iono[,-2]
+Iono$V1 <- as.numeric(as.character(Iono$V1))
+
+inTraining0 <- createDataPartition(Iono$Class, p = .75, list = FALSE)
+training <- Iono[ inTraining0,]
+testing  <- Iono[-inTraining0,]
+testingY <- as_label(Iono[-inTraining0, ncol(Iono)])
+```
+
+```{r}
+table(Iono[ inTraining0, ncol(Iono)])
+```
+
+```{r}
+t1 <- mtrainer(c('nnet', 'rda')) %>%
+  train(Class~., training, update=F) %>%
+  predict(newdata=testing)
+```
+
+```{r}
+plot(t1)
+```
+
+```{r}
+summary(s1)
+```
+
+
+```{r}
+t1 <- t1 %>%
+  addmodel.mtrainer(c('ctree', 'C5.0', 'gbm')) %>%
+  train(Class~., training) %>%
+  predict(newdata=testing)
+```
+
+```{r}
+#t1 <- predict(t1, newdata=testing)
+auclist <- apply(t1$predictions, 2, auc.rank, testingY)
+
+fde1 <- fde(t1$predictions)
+fde1 <- predict_performance(fde1, auclist, attr(testingY, 'rho'))
+```
+
+```{r}
+plot_cor(fde1, legend_flag = T)
+```
+
+```{r}
+fde1 <- fde(t1$predictions, testingY)
+```
+
+```{r}
+plot_single(fde1, 'score')
+```
+
+```{r}
+store.mtrainer(t1, 'iono_m8_pre.RData')
+saveRDS(testingY, 'iono_m8_y.RData')
+```
+
+```{r}
+saveRDS(t1, 'iono_all.RData')
+```
+
