@@ -10,6 +10,7 @@
 library(ggplot2)
 library(ggpubr)
 library(tictoc)
+library(data.table)
 
 setClass("FDensemble",
          representation(predictions = "matrix",
@@ -91,9 +92,16 @@ setMethod("calculate_performance", "FDensemble", function(.Object, actual_label,
   for (m in seq(1, .Object@nmethods)) {
     .Object@logit_matrix[, m] <- .Object@beta[m]^alpha *(.Object@rstar[m] - .Object@logit_matrix[, m])
   }
-  .Object@estimated_rank <- rowSums(.Object@logit_matrix)
-  .Object@estimated_label[.Object@estimated_rank > 0] <- 'class1'
-  .Object@estimated_prob <- 1/(1+exp(-.Object@estimated_rank))
+  .Object@estimated_logit <- -rowSums(.Object@logit_matrix)
+  .Object@estimated_label <- as.factor(ifelse(.Object@estimated_logit >0, 'class1', 'class2'))
+  .Object@estimated_prob <- 1/(1+exp(-.Object@estimated_logit))
+  .Object@estimated_rank <- frankv(.Object@estimated_logit)
+
+  if (ncol(.Object@rank_matrix) != ncol(.Object@predictions)) {
+    .Object@rank_matrix <- .Object@rank_matrix[, -ncol(.Object@rank_matrix)]
+  }
+  #colnames(.Object@rank_matrix) <- classifier_names
+  .Object@rank_matrix <- cbind(.Object@rank_matrix, A_FD=.Object@estimated_rank)
 
   # calculate ensemble AUC
   .Object@ensemble_auc <- auc.rank(.Object@estimated_rank, actual_label)
@@ -112,8 +120,13 @@ setMethod("predict_performance", "FDensemble", function(.Object, actual_performa
   tic(sprintf('... N:%d, M:%d', .Object@nsamples, .Object@nmethods))
   # calculate auc using labels
   .Object@actual_performance <- actual_performance
-  gen_name <- function(x) { paste0('A_', round(x, digits=3)) }
-  classifier_names <- sapply(actual_performance, gen_name)
+
+  org_names <- colnames(.Object@predictions)
+  classifier_names <- list()
+  for (i in seq_along(actual_performance)) {
+    classifier_names <- c(classifier_names,
+                          paste0('A_', round(actual_performance[i], digits=3), '\n',org_names[i]))
+  }
   colnames(.Object@predictions) <- classifier_names
 
   # calculate beta, mu and rstar
@@ -166,11 +179,12 @@ setMethod("plot_cor", "FDensemble", function(.Object, filename='cor.pdf', legend
   cor_m <- as.data.table(cor(.Object@rank_matrix))
   cor_m$Var1 <- colnames(.Object@rank_matrix)
   melted_cor_m <- melt(cor_m, id='Var1', variable.name = 'Var2')
+  #melted_cor_m <- setorder(melted_cor_m, Var1, -Var2)
 
   g <- ggplot(melted_cor_m, aes(Var1, Var2)) +
     geom_tile(aes(fill = value), colour = "white") +
     scale_fill_gradient(low = "white", high = "steelblue") +
-    theme_grey(base_size = 9) + labs(x = "", y = "") +
+    theme_grey(base_size = 10) + labs(x = "", y = "") +
     scale_x_discrete(expand = c(0, 0)) +
     scale_y_discrete(expand = c(0, 0))
   if (!legend_flag) {
@@ -179,6 +193,7 @@ setMethod("plot_cor", "FDensemble", function(.Object, filename='cor.pdf', legend
 
   ggsave(filename, g, width=8, height=7)
   print(g)
+  return(cor_m)
 })
 
 setGeneric("plot_single", function(.Object, target, ...) {standardGeneric("plot_single")})
