@@ -25,18 +25,16 @@ create.labels <- function(N=100, rho=0.5) {
 
 as_label <- function(ylist, class1=NULL) {
   if (any('label' %in% class(ylist))) return(ylist)
-  ylist <- as.factor(ylist)
+  #ylist <- as.factor(ylist)
 
-  llist <- labels(ylist)
-  print(llist)
+  llist <- levels(ylist)
+
   if (is.null(class1)) {
     class1 <- llist[[1]]
     class2 <- llist[[2]]
   } else {
     class2 <- llist[llist != class1]
   }
-  print(class1)
-  print(class2)
 
   attr(ylist, 'class1') <- class1
   attr(ylist, 'class2') <- class2

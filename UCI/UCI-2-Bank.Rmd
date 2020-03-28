@@ -1,0 +1,81 @@
+---
+title: "UCI - Bank"
+author: "Sungcheol Kim"
+date: "12/13/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(FDclassifieR)
+```
+
+## Bank data
+```{r}
+Bank <- read.csv('bank.csv', sep=';')
+
+inTraining0 <- createDataPartition(Bank$y, p = .75, list = FALSE)
+training <- Bank[ inTraining0,]
+testing  <- Bank[-inTraining0,]
+testingY <- as_label(Bank[-inTraining0, ncol(Bank)])
+```
+
+```{r}
+table(Bank[ inTraining0, ncol(Bank)])
+```
+
+```{r}
+t1 <- mtrainer(c('nnet', 'rda')) %>%
+  train(y~., training, update=F) %>%
+  predict(newdata=testing)
+```
+
+```{r}
+t1 <- t1 %>%
+  addmodel.mtrainer(c('ctree', 'C5.0', 'gbm')) %>%
+  train(y~., training, update=F)
+```
+
+### check parameter fitting
+
+```{r}
+t1 <- t1 %>%
+  addmodel.mtrainer(c('svmLinear', 'svmRadial', 'pls', 'knn', 'earth', 'avNNet')) %>%
+  train(y~., training, update=F)
+```
+
+### Select best parameters
+
+```{r, fig.width=4, fig.height=3}
+plot(t1)
+```
+
+## Calculate Rank
+
+```{r}
+t1 <- predict(t1, newdata=testing)
+auclist <- apply(t1$predictions, 2, auc.rank, testingY)
+
+fde1 <- fde(t1$predictions)
+fde1 <- predict_performance(fde1, auclist, attr(testingY, 'rho'))
+```
+
+## Rank class probability
+
+```{r}
+plot_cor(fde1, legend_flag = T)
+```
+
+```{r}
+fde1 <- fde(t1$predictions, testingY)
+```
+
+```{r}
+plot_single(fde1, 'score')
+```
+
+```{r}
+store.mtrainer(t1, 'bank_m8_pre.RData')
+saveRDS(testingY, 'bank_m8_y.RData')
+```
