@@ -13,7 +13,7 @@ library(FDclassifieR)
 
 ## Bank data
 ```{r}
-Bank <- read.csv('bank.csv', sep=';')
+Bank <- read.csv('data/bank.csv', sep=';')
 
 inTraining0 <- createDataPartition(Bank$y, p = .75, list = FALSE)
 training <- Bank[ inTraining0,]
@@ -22,7 +22,7 @@ testingY <- as_label(Bank[-inTraining0, ncol(Bank)])
 ```
 
 ```{r}
-table(Bank[ inTraining0, ncol(Bank)])
+table(Bank$y)
 ```
 
 ```{r}
@@ -42,8 +42,7 @@ t1 <- t1 %>%
 ```{r}
 t1 <- t1 %>%
   addmodel.mtrainer(c('svmLinear', 'svmRadial', 'pls', 'earth', 'avNNet')) %>%
-  train(y~., training, update=F) %>%
-  predict(newdata=testingY)
+  train(y~., training, update=F)
 ```
 
 ### Select best parameters
@@ -80,3 +79,8 @@ plot_single(fde1, 'score')
 store.mtrainer(t1, 'bank_m8_pre.RData')
 saveRDS(testingY, 'bank_m8_y.RData')
 ```
+
+```{r}
+saveRDS(t1, 'bank_all.RData')
+```
+

@@ -14,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(caret)
 
-tag <- read.csv("tag_data.csv", row.names = 1)
+tag <- read.csv("data/tag_data.csv", row.names = 1)
 tag <- as.matrix(tag)
 
 ## Select only models for regression
@@ -30,7 +30,7 @@ pool <- all[all != start]
 nextMods <- maxDissim(regModels[start,,drop = FALSE], 
                       regModels[pool, ], 
                       method = "Jaccard",
-                      n = 10)
+                      n = 20)
 
 rownames(regModels)[c(start, nextMods)]
 ```

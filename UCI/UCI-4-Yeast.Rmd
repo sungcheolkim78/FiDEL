@@ -17,7 +17,7 @@ library(FDclassifieR)
 
 ```{r}
 #yeast <- read_table(url("http://archive.ics.uci.edu/ml/machine-learning-databases/yeast/yeast.data"))
-tmp <- read.table('yeast.csv')
+tmp <- read.table('data/yeast.csv')
 names(tmp)<- c("SequenceName", "mcg", "gvh", "alm", 
                "mit", "erl", "pox", "vac", "nuc", "LocalizationSite")
 
@@ -36,7 +36,7 @@ testingY <- as_label(Yeast[-inTraining0, ncol(Yeast)])
 ```
 
 ```{r}
-table(Yeast[ inTraining0, ncol(Yeast)])
+table(Yeast$Site)
 ```
 
 # Data analysis
@@ -108,13 +108,13 @@ summary(s1)
 
 ```{r}
 t1 <- t1 %>%
-  addmodel.mtrainer(c('ctree', 'C5.0', 'gbm')) %>%
-  train(Site~., training) %>%
-  predict(newdata=testing)
+  addmodel.mtrainer(c('ctree', 'C5.0', 'gbm', 'svmLinear', 'svmRadial', 'pls', 'earth', 'avNNet')) %>%
+  train(Site~., training) 
+
 ```
 
 ```{r}
-#t1 <- predict(t1, newdata=testing)
+t1 <- predict(t1, newdata=testing)
 auclist <- apply(t1$predictions, 2, auc.rank, testingY)
 
 fde1 <- fde(t1$predictions)
