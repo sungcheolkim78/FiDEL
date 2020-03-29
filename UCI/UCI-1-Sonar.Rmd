@@ -29,7 +29,7 @@ t1 <- mtrainer(c('nnet', 'rda')) %>%
 
 ```{r}
 t1 <- t1 %>%
-  addmodel.mtrainer(c('ctree', 'C5.0', 'gbm')) %>%
+  addmodel.mtrainer(c('mlp', 'nb', 'rf', 'rpart', 'xgbTree', 'ctree', 'C5.0', 'gbm', 'bayesglm', 'earth', 'glm', 'avNNet', 'glmnet', 'simpls')) %>%
   train(Class~., training, update=F)
 ```
 

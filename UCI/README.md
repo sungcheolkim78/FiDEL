@@ -16,8 +16,9 @@
 - Number of Attributes: 17
 - Label:  (y) yes (521)  yo (4000)
 - Prevelence: 0.115
-- Models: 'nnet', 'rda', 'ctree', 'C5.0', gbm, 'svmLinear', 'svmRadial', 'pls', 'earth', 'avNNet'
-- Number of Models: 10
+- Models: 'nnet', 'rda', 'svmLinear', 'svmRadial', 'pls', 'earth', 'avNNet', 'mlp', 'nb', 'rf', 'rpart', 'xgbTree', 'ctree', 'C5.0', 'gbm', 'bayesglm', 'earth', 'glm', 'avNNet', 'glmnet', 'simpls', 'xgbLinear','ctree', 'C5.0', 'gbm'
+- Number of Models: 25
+- Training Time: 1 hr 33 min
 - Link: (Bank)[https://archive.ics.uci.edu/ml/datasets/Bank+Marketing]
 
 ## Ionosphere
