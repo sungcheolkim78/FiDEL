@@ -26,9 +26,8 @@ table(Bank$y)
 ```
 
 ```{r}
-t1 <- mtrainer(c('nnet', 'rda')) %>%
-  train(y~., training, update=F) %>%
-  predict(newdata=testing)
+t1 <- mtrainer(c('nnet', 'rda', 'svmLinear', 'svmRadial', 'pls', 'earth', 'avNNet', 'mlp', 'nb', 'rf', 'rpart', 'xgbTree', 'ctree', 'C5.0', 'gbm', 'bayesglm', 'earth', 'glm', 'avNNet', 'glmnet', 'simpls', 'xgbLinear','ctree', 'C5.0', 'gbm')) %>%
+  train(y~., training, update=F)
 ```
 
 ```{r}
@@ -41,13 +40,13 @@ t1 <- t1 %>%
 
 ```{r}
 t1 <- t1 %>%
-  addmodel.mtrainer(c('svmLinear', 'svmRadial', 'pls', 'earth', 'avNNet')) %>%
+  addmodel.mtrainer(c('svmLinear', 'svmRadial', 'pls', 'earth', 'avNNet', 'mlp', 'nb', 'rf', 'rpart', 'xgbTree', 'ctree', 'C5.0', 'gbm', 'bayesglm', 'earth', 'glm', 'avNNet', 'glmnet', 'simpls', 'xgbLinear','ctree', 'C5.0', 'gbm' )) %>%
   train(y~., training, update=F)
 ```
 
 ### Select best parameters
 
-```{r, fig.width=4, fig.height=3}
+```{r}
 plot(t1)
 ```
 

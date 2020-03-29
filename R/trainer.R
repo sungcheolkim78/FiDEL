@@ -51,6 +51,7 @@ new_mtrainer <- function(x = list(), fitControl = NULL) {
 
 # validate
 validate_mtrainer <- function(x) {
+  x <- unique(x)
   modellist_full <- names(caret::getModelInfo())
   check <- x$model_list %in% modellist_full
   if(!all(check)) {
