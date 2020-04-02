@@ -16,6 +16,8 @@ library(FDclassifieR)
 ## Prepare Data
 
 ```{r}
+set.seed(1024)
+
 #yeast <- read_table(url("http://archive.ics.uci.edu/ml/machine-learning-databases/yeast/yeast.data"))
 tmp <- read.table('data/yeast.csv')
 names(tmp)<- c("SequenceName", "mcg", "gvh", "alm", 
@@ -92,9 +94,13 @@ plot(PrincipalComponent1, PrincipalComponent2, col=clusterCut)
 # Train models
 
 ```{r}
-t1 <- mtrainer(c('nnet', 'rda')) %>%
-  train(Site~., training, update=F) %>%
-  predict(newdata=testing)
+model_list <- c('nnet', 'rda', 'svmLinear', 'svmRadial', 'pls', 'knn', 'earth', 'avNNet', 'mlp', 'nb', 'rf', 'rpart', 'ctree', 'C5.0', 'gbm', 'bayesglm', 'glm', 'glmnet', 'simpls')
+t1 <- mtrainer(model_list, dataInfo = 'Yeast')
+```
+
+
+```{r}
+t1 <- train(t1, Site~., training, update=T)
 ```
 
 ```{r}
@@ -115,14 +121,14 @@ t1 <- t1 %>%
 
 ```{r}
 t1 <- predict(t1, newdata=testing)
-auclist <- apply(t1$predictions, 2, auc.rank, testingY)
+#auclist <- apply(t1$predictions, 2, auc.rank, testingY)
 
-fde1 <- fde(t1$predictions)
-fde1 <- predict_performance(fde1, auclist, attr(testingY, 'rho'))
+fde1 <- fde(t1$predictions, testingY)
+#fde1 <- predict_performance(fde1, auclist, attr(testingY, 'rho'))
 ```
 
 ```{r}
-plot_cor(fde1, legend_flag = T)
+plot_cor(fde1, class_flag='negative')
 ```
 
 ```{r}

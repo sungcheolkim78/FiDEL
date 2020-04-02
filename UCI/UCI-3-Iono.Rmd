@@ -11,13 +11,13 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 
 library(mlbench)
-
 library(FDclassifieR)
 ```
 
 ## Prepare Data
 
 ```{r}
+set.seed(1024)
 data(Ionosphere)
 
 Iono <- Ionosphere
@@ -31,41 +31,36 @@ testingY <- as_label(Iono[-inTraining0, ncol(Iono)])
 ```
 
 ```{r}
-table(Iono[ inTraining0, ncol(Iono)])
+table(Iono[, ncol(Iono)])
 ```
 
 ```{r}
-t1 <- mtrainer(c('nnet', 'rda')) %>%
-  train(Class~., training, update=F) %>%
-  predict(newdata=testing)
+model_list <- c('nnet', 'rda', 'svmLinear', 'svmRadial', 'pls', 'knn', 'earth', 'avNNet', 'mlp', 'nb', 'rf', 'rpart', 'ctree', 'C5.0', 'gbm', 'bayesglm', 'glm', 'glmnet', 'simpls')
+t1 <- mtrainer(model_list, dataInfo = 'Iono')
+```
+
+```{r}
+t1 <- train(t1, Class~., training, update=T)
 ```
 
 ```{r}
 plot(t1)
 ```
 
-```{r}
-summary(s1)
-```
-
 
 ```{r}
-t1 <- t1 %>%
-  addmodel.mtrainer(c('ctree', 'C5.0', 'gbm')) %>%
-  train(Class~., training) %>%
-  predict(newdata=testing)
+t1 <- predict(t1, newdata=testing)
 ```
 
 ```{r}
-#t1 <- predict(t1, newdata=testing)
-auclist <- apply(t1$predictions, 2, auc.rank, testingY)
+#auclist <- apply(t1$predictions, 2, auc.rank, testingY)
 
-fde1 <- fde(t1$predictions)
-fde1 <- predict_performance(fde1, auclist, attr(testingY, 'rho'))
+fde1 <- fde(t1$predictions, testingY)
+#fde1 <- predict_performance(fde1, auclist, attr(testingY, 'rho'))
 ```
 
 ```{r}
-plot_cor(fde1, legend_flag = T)
+plot_cor(fde1, class_flag='positive')
 ```
 
 ```{r}

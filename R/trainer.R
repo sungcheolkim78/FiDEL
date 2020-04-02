@@ -20,7 +20,7 @@ library(tictoc)
 #' @examples
 #' t <- mtrainer(c('C5.0', 'ctree'))
 #' @export
-new_mtrainer <- function(x = list(), fitControl = NULL) {
+new_mtrainer <- function(x = list(), dataInfo = 'temp', fitControl = NULL) {
   stopifnot(is.character(x))
 
   # prepare fitControl
@@ -37,22 +37,35 @@ new_mtrainer <- function(x = list(), fitControl = NULL) {
                                       search = "random", seeds = seeds)
   }
 
+  fname <- paste0(dataInfo, '.RData')
+  if (file.exists(fname)) {
+    fitlist <- readRDS(fname)
+    fitnames <- names(fitlist)
+    cat('... read ', length(fitlist), ' models: ', fitnames, '\n')
+    check <- x %in% fitnames
+    cat('... add ', sum(!check), ' models: ', x[!check], '\n')
+    x <- c(x[!check], fitnames)
+  } else {
+    fitlist <- list()
+  }
+
   structure(list(model_list = x,
                  modelInfo = list(label="FDensemble"),
+                 dataInfo = dataInfo,
                  prevalence = numeric(),
                  nmethods = length(x),
                  test_data = list(),
                  test_label = list(),
                  predictions = numeric(),
                  control = fitControl,
-                 fitlist = list()),
+                 fitlist = fitlist),
             class = "mtrainer")
 }
 
 # validate
 validate_mtrainer <- function(x) {
-  x <- unique(x)
   modellist_full <- names(caret::getModelInfo())
+  x$model_list <- unique(x$model_list)
   check <- x$model_list %in% modellist_full
   if(!all(check)) {
     stop(paste0('Unknown model name: ', x$model_list[!check], '\n'))
@@ -62,8 +75,8 @@ validate_mtrainer <- function(x) {
 }
 
 # helper
-mtrainer <- function(x = list(), fitControl = NULL) {
-  validate_mtrainer(new_mtrainer(x, fitControl))
+mtrainer <- function(x = list(), dataInfo='temp', fitControl = NULL) {
+  validate_mtrainer(new_mtrainer(x, dataInfo, fitControl))
 }
 
 #' Calculate AUC using rank
@@ -88,7 +101,7 @@ addmodel.mtrainer <- function(mtrainer, newmodelname) {
   validate_mtrainer(mtrainer)
 }
 
-train.mtrainer <- function(mtrainer, formula, data, update=FALSE, n_cores=-1) {
+train.mtrainer <- function(mtrainer, formula, data, update=FALSE, save=TRUE, n_cores=-1) {
   if (n_cores == -1) n_cores <- detectCores() - 1
 
   # worker module for parallel process
@@ -98,29 +111,31 @@ train.mtrainer <- function(mtrainer, formula, data, update=FALSE, n_cores=-1) {
 
     if (method %in% names(mtrainer$fitlist) && !update) {
       message(paste0('... using cached result: ', method))
-      mtrainer$fitlist[[method]]
+      return (mtrainer$fitlist[[method]])
     } else {
       #set.seed(1024)
+      cl <- makePSOCKcluster(n_cores)
+      registerDoParallel(cl)
       if (method %in% c('gbm', 'nnet')) {
-        caret::train(formula, data=data, method=method, trControl=mtrainer$control,
+        fit <- caret::train(formula, data=data, method=method, trControl=mtrainer$control,
                      metric="ROC", tuneLength=4, preProc = c("center", "scale"), verbose=FALSE)
       }
       else {
-        caret::train(formula, data=data, method=method, trControl=mtrainer$control,
+        fit <- caret::train(formula, data=data, method=method, trControl=mtrainer$control,
                      metric="ROC", tuneLength=4, preProc = c("center", "scale"))
       }
+      stopCluster(cl)
+      return (fit)
     }
   }
 
   tic(cat('... train model with ', mtrainer$nmethods, ' algorithms\n'))
 
-  cl <- makePSOCKcluster(n_cores)
-  registerDoParallel(cl)
   mtrainer$fitlist <- lapply(mtrainer$model_list, caret_train)
-  stopCluster(cl)
 
   names(mtrainer$fitlist) <- mtrainer$model_list
   mtrainer$nmethods <- length(mtrainer$fitlist)
+  saveRDS(mtrainer$fitlist, file = paste0(mtrainer$dataInfo, '.RData'))
   toc()
 
   mtrainer

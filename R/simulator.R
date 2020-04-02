@@ -25,7 +25,7 @@ create.labels <- function(N=100, rho=0.5) {
 
 as_label <- function(ylist, class1=NULL) {
   if (any('label' %in% class(ylist))) return(ylist)
-  #ylist <- as.factor(ylist)
+  if (!any('factor' %in% class(ylist))) ylist <- as.factor(ylist)
 
   llist <- levels(ylist)
 

@@ -12,6 +12,8 @@ library(ggpubr)
 library(tictoc)
 library(data.table)
 
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
 setClass("FDensemble",
          representation(predictions = "matrix",
                         logit_matrix = "matrix",
@@ -93,7 +95,7 @@ setMethod("calculate_performance", "FDensemble", function(.Object, actual_label,
     .Object@logit_matrix[, m] <- .Object@beta[m]^alpha *(.Object@rstar[m] - .Object@logit_matrix[, m])
   }
   .Object@estimated_logit <- -rowSums(.Object@logit_matrix)
-  .Object@estimated_label <- as.factor(ifelse(.Object@estimated_logit >0, 'class1', 'class2'))
+  .Object@estimated_label <- as_label(ifelse(.Object@estimated_logit >0, 'class1', 'class2'))
   .Object@estimated_prob <- 1/(1+exp(-.Object@estimated_logit))
   .Object@estimated_rank <- frankv(.Object@estimated_logit)
 
@@ -104,7 +106,7 @@ setMethod("calculate_performance", "FDensemble", function(.Object, actual_label,
   .Object@rank_matrix <- cbind(.Object@rank_matrix, A_FD=.Object@estimated_rank)
 
   # calculate ensemble AUC
-  .Object@ensemble_auc <- auc.rank(.Object@estimated_rank, actual_label)
+  .Object@ensemble_auc <- auc.rank(.Object@estimated_logit, actual_label)
   cat('... Ensemble AUC:', .Object@ensemble_auc, '\n')
   cat('... AUC list:', .Object@actual_performance, '\n')
   cat('... beta list:', .Object@beta, '\n')
@@ -120,12 +122,13 @@ setMethod("predict_performance", "FDensemble", function(.Object, actual_performa
   tic(sprintf('... N:%d, M:%d', .Object@nsamples, .Object@nmethods))
   # calculate auc using labels
   .Object@actual_performance <- actual_performance
+  .Object@estimated_performance <- actual_performance
 
   org_names <- colnames(.Object@predictions)
   classifier_names <- list()
   for (i in seq_along(actual_performance)) {
     classifier_names <- c(classifier_names,
-                          paste0('A_', round(actual_performance[i], digits=3), '\n',org_names[i]))
+                          paste0('M', i, '_', round(actual_performance[i], digits=3), '\n',org_names[i]))
   }
   colnames(.Object@predictions) <- classifier_names
 
@@ -143,9 +146,10 @@ setMethod("predict_performance", "FDensemble", function(.Object, actual_performa
     .Object@logit_matrix[, m] <- .Object@beta[m]^alpha * (.Object@rstar[m] - .Object@logit_matrix[, m] )
   }
   .Object@estimated_logit <- -rowMeans(.Object@logit_matrix)
-  .Object@estimated_label <- as.factor(ifelse(.Object@estimated_logit >0, 'class1', 'class2'))
+  .Object@estimated_label <- as_label(ifelse(.Object@estimated_logit >0, 'class1', 'class2'))
   .Object@estimated_prob <- 1/(1+exp(-.Object@estimated_logit))
   .Object@estimated_rank <- frankv(.Object@estimated_logit)
+  .Object@ensemble_auc <- auc.rank(.Object@estimated_logit, .Object@estimated_label)
 
   if (ncol(.Object@rank_matrix) != ncol(.Object@predictions)) {
     .Object@rank_matrix <- .Object@rank_matrix[, -ncol(.Object@rank_matrix)]
@@ -153,6 +157,7 @@ setMethod("predict_performance", "FDensemble", function(.Object, actual_performa
   colnames(.Object@rank_matrix) <- classifier_names
   .Object@rank_matrix <- cbind(.Object@rank_matrix, A_FD=.Object@estimated_rank)
 
+  cat('... Ensemble AUC:', .Object@ensemble_auc, '\n')
   cat('... AUC list:', .Object@actual_performance, '\n')
   cat('... beta list:', .Object@beta, '\n')
   cat('... mu list:', .Object@mu, '\n')
@@ -175,25 +180,47 @@ setMethod("plot_FDstatistics", "FDensemble", function(.Object) {
 
 setGeneric("plot_cor", function(.Object, filename='cor.pdf', ...) {standardGeneric("plot_cor")})
 
-setMethod("plot_cor", "FDensemble", function(.Object, filename='cor.pdf', legend_flag=FALSE) {
-  cor_m <- as.data.table(cor(.Object@rank_matrix))
-  cor_m$Var1 <- colnames(.Object@rank_matrix)
-  melted_cor_m <- melt(cor_m, id='Var1', variable.name = 'Var2')
-  #melted_cor_m <- setorder(melted_cor_m, Var1, -Var2)
+setMethod("plot_cor", "FDensemble", function(.Object, filename='cor.pdf', class_flag='all', legend_flag=FALSE) {
+  if (length(.Object@actual_label) == 0) {
+    colorder <- order(.Object@estimated_performance)
+    colorder <- c(colorder, .Object@nmethods+1)
+    if (class_flag == 'all') { cor_m <- cor(.Object@rank_matrix) }
+    if (class_flag == 'positive') {
+      cor_m <- cor(.Object@rank_matrix[.Object@estimated_label == attr(.Object@estimated_label, 'class1'), colorder])
+    }
+    if (class_flag == 'negative') {
+      cor_m <- cor(.Object@rank_matrix[.Object@estimated_label != attr(.Object@estimated_label, 'class1'), colorder])
+    }
+  } else {
+    colorder <- order(.Object@actual_performance)
+    colorder <- c(colorder, .Object@nmethods+1)
+    if (class_flag == 'all') { cor_m <- cor(.Object@rank_matrix) }
+    if (class_flag == 'positive') {
+      cor_m <- cor(.Object@rank_matrix[.Object@actual_label == attr(.Object@actual_label, 'class1'), colorder])
+    }
+    if (class_flag == 'negative') {
+      cor_m <- cor(.Object@rank_matrix[.Object@actual_label != attr(.Object@actual_label, 'class1'), colorder])
+    }
+  }
+  cor_m[upper.tri(cor_m)] <- NA
+  melted_cor_m <- reshape2::melt(cor_m, na.rm=TRUE)
 
   g <- ggplot(melted_cor_m, aes(Var1, Var2)) +
     geom_tile(aes(fill = value), colour = "white") +
-    scale_fill_gradient(low = "white", high = "steelblue") +
+    scale_fill_gradient2(mid = "white", low = cbPalette[6], high=cbPalette[7], midpoint=0, limit=c(-1,1)) +
     theme_grey(base_size = 10) + labs(x = "", y = "") +
     scale_x_discrete(expand = c(0, 0)) +
-    scale_y_discrete(expand = c(0, 0))
+    scale_y_discrete(expand = c(0, 0)) +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1,size = 9, hjust = 1)) +
+    geom_text(aes(label=round(value,digits = 3)), size=2) +
+    annotate(geom="text", x=1, y=.Object@nmethods+1, label=class_flag, color="black", hjust=0)
   if (!legend_flag) {
     g <- g + theme(legend.position = "none")
   }
 
   ggsave(filename, g, width=8, height=7)
   print(g)
-  return(cor_m)
+  #return(cor_m)
 })
 
 setGeneric("plot_single", function(.Object, target, ...) {standardGeneric("plot_single")})
