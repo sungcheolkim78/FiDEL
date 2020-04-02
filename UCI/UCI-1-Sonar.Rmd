@@ -13,7 +13,7 @@ library(FDclassifieR)
 ```
 
 ```{r}
-#set.seed(1024)
+set.seed(1024)
 data(Sonar)
 inTraining0 <- createDataPartition(Sonar$Class, p = .75, list = FALSE)
 training <- Sonar[ inTraining0,]
@@ -22,15 +22,16 @@ testingY <- as_label(Sonar[-inTraining0, ncol(Sonar)])
 ```
 
 ```{r}
-t1 <- mtrainer(c('nnet', 'rda')) %>%
-  train(Class~., training, update=F) %>%
-  predict(newdata=testing)
+table(Sonar[,ncol(Sonar)])
 ```
 
 ```{r}
-t1 <- t1 %>%
-  addmodel.mtrainer(c('mlp', 'nb', 'rf', 'rpart', 'xgbTree', 'ctree', 'C5.0', 'gbm', 'bayesglm', 'earth', 'glm', 'avNNet', 'glmnet', 'simpls')) %>%
-  train(Class~., training, update=F)
+model_list <- c('nnet', 'rda', 'svmLinear', 'svmRadial', 'pls', 'knn', 'earth', 'avNNet', 'mlp', 'nb', 'rf', 'rpart', 'ctree', 'C5.0', 'gbm', 'bayesglm', 'glm', 'glmnet', 'simpls')
+t1 <- mtrainer(model_list, dataInfo = 'Sonar')
+```
+
+```{r}
+t1 <- train(t1, Class~., training, update=T)
 ```
 
 ```{r}
@@ -45,6 +46,9 @@ plot(t1)
 
 ```{r}
 t1 <- predict(t1, newdata=testing)
+```
+
+```{r}
 auclist <- apply(t1$predictions, 2, auc.rank, testingY)
 
 fde1 <- fde(t1$predictions)
@@ -52,7 +56,7 @@ fde1 <- predict_performance(fde1, auclist, attr(testingY, 'rho'))
 ```
 
 ```{r}
-plot_cor(fde1, legend_flag = T)
+plot_cor(fde1, class_flag = 'negative')
 ```
 
 ```{r}

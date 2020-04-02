@@ -13,7 +13,7 @@ library(data.table)
 ## Categorical Feature Encoding Challenge II
 
 ```{r cars}
-dirname <- 'cat_maxAUC_0.78'
+dirname <- 'data_cat_maxAUC_0.78'
 flist <- list.files(path=dirname, pattern='0.*.csv')
 auclist <- as.numeric(gsub(".csv", "", flist))
 
@@ -51,15 +51,15 @@ hist(ksumma@estimated_rank)
 ```
 
 ```{r}
-fde1 <- fdensemble(predictions)
+fde1 <- fdensemble(predictions[,1:8])
 ```
 
 ```{r}
-fde1 <- predict_performance(fde1, auclist, rho, alpha = 1)
+fde1 <- predict_performance(fde1, auclist[1:8], rho, alpha = 1)
 ```
 
 ```{r}
-hist(fde1@estimated_rank)
+plot_cor(fde1, class_flag='positive')
 ```
 
 ```{r}
@@ -82,7 +82,7 @@ cor(fde1@rank_matrix)
 ## west nile virus prediction
 
 ```{r cars}
-dirname <- 'west_nile_maxAUC_0.85'
+dirname <- 'data_west_nile_maxAUC_0.85'
 flist <- list.files(path=dirname, pattern='0.*.csv')
 auclist <- as.numeric(gsub(".csv", "", flist))
 
@@ -120,11 +120,11 @@ plot.scores(ksumma@estimated_rank, as.factor(ksumma@estimated_label))
 ```
 
 ```{r}
-fde1 <- fdensemble(predictions)
+fde1 <- fdensemble(predictions[,1:9])
 ```
 
 ```{r}
-fde1 <- predict_performance(fde1, auclist, rho, alpha=1)
+fde1 <- predict_performance(fde1, auclist[1:9], rho, alpha=1)
 ```
 
 ```{r}
@@ -155,14 +155,12 @@ fwrite(submit, file='submission.csv')
 ```
 
 ```{r}
-rmax <- max(fde1@estimated_rank)
-rmin <- min(fde1@estimated_rank)
 submit <- data.table(Id=seq(1,116293), WnvPresent=fde1@estimated_prob)
 fwrite(submit, file='submission.csv')
 ```
 
 ```{r}
-plot_cor(fde1, legend_flag=T)
+plot_cor(fde1, class_flag='negative')
 ```
 
 ```{r}
@@ -172,7 +170,7 @@ cor(fde1@rank_matrix)
 ## Porto Seguro's Safe Driver Prediction
 
 ```{r}
-dirname <- 'porto_maxGini_0.29'
+dirname <- 'data_porto_maxGini_0.29'
 flist <- list.files(path=dirname, pattern='0.*.csv')
 auclist <- (as.numeric(gsub(".csv", "", flist)) + 1)/2
 
@@ -252,7 +250,7 @@ fwrite(submit, file='submission.csv')
 ```
 
 ```{r}
-plot_cor(fde1, legend_flag=T)
+plot_cor(fde1, class_flag='negative')
 ```
 
 ```{r}
