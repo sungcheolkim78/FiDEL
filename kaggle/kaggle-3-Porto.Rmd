@@ -108,10 +108,15 @@ cor(fde1@rank_matrix)
 ```{r}
 set.seed(1024)
 
-tmp <- train[, c(3:59,2)] %>% sample_n(8000)
+# remove complete_rate < 0.9 columns
+tmp <- train[, -c(23,26,28)]
+tmp <- train[complete.cases(tmp), ]
+
+# change categorical variables to one-hot vectors
 cat_vars <- names(tmp)[grepl('_cat$', names(tmp))]
 tmp <- tmp %>%
-    mutate_at(.vars = cat_vars, .funs = as.factor)
+  sample_n(30000) %>%
+  mutate_at(.vars = cat_vars, .funs = as.factor)
 tmp <- model.matrix(~ . - 1, data = tmp)
 ```
 
@@ -131,7 +136,7 @@ table(training$target)
 
 ```{r}
 model_list <- c('nnet', 'rda', 'svmLinear', 'svmRadial', 'pls', 'knn', 'earth', 'avNNet', 'mlp', 'nb', 'rf', 'rpart', 'ctree', 'C5.0', 'gbm', 'bayesglm', 'glm', 'glmnet', 'simpls')
-t1 <- mtrainer('rf', dataInfo = 'Porto')
+t1 <- mtrainer(c('rda', 'pls', 'glm'), dataInfo = 'Porto')
 ```
 
 ```{r}
