@@ -24,10 +24,7 @@ setClass("FDensemble",
                         rstar = "numeric",
                         nsamples = "numeric",
                         nmethods = "numeric",
-<<<<<<< HEAD
                         method_names = "character",
-=======
->>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449
                         ensemble_auc = "numeric",
                         actual_performance = "numeric",
                         actual_prevalence = "numeric",
@@ -45,7 +42,6 @@ setMethod("initialize", "FDensemble", function(.Object, predictions, ...) {
   .Object@predictions <- predictions
   .Object@nsamples <- nrow(predictions)
   .Object@nmethods <- ncol(predictions)
-<<<<<<< HEAD
 
   # set base classifier names
   if (is.null(colnames(predictions))) {
@@ -54,8 +50,6 @@ setMethod("initialize", "FDensemble", function(.Object, predictions, ...) {
   .Object@method_names <- colnames(predictions)
   names(.Object@method_names) <- colnames(predictions)
 
-=======
->>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449
   .Object@logit_matrix <- apply(predictions, 2, frankv)
   .Object@rank_matrix <- apply(predictions, 2, frankv)
   .Object@estimated_label <- as.factor(c('class1', rep('class2', .Object@nsamples-1)))
@@ -96,13 +90,10 @@ setMethod("calculate_performance", "FDensemble", function(.Object, actual_label,
 
   # calculate auc using labels
   .Object@actual_performance <- apply(.Object@predictions, 2, auc.rank, actual_label)
-<<<<<<< HEAD
   for (i in seq_along(.Object@actual_performance)) {
     .Object@method_names[i] <- paste0(.Object@method_names[i], '\n', 'A=',
                                       round(.Object@actual_performance[i], digits=3))
   }
-=======
->>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449
 
   # calculate beta, mu and rstar
   .Object@actual_prevalence <- attr(actual_label, 'rho')
@@ -147,20 +138,10 @@ setMethod("predict_performance", "FDensemble", function(.Object, actual_performa
   .Object@actual_performance <- actual_performance
   .Object@estimated_performance <- actual_performance
 
-<<<<<<< HEAD
   for (i in seq_along(.Object@actual_performance)) {
     .Object@method_names[i] <- paste0(.Object@method_names[i], '\n', 'A=',
                                       round(.Object@actual_performance[i], digits=3))
   }
-=======
-  org_names <- colnames(.Object@predictions)
-  classifier_names <- list()
-  for (i in seq_along(actual_performance)) {
-    classifier_names <- c(classifier_names,
-                          paste0('M', i, '_', round(actual_performance[i], digits=3), '\n',org_names[i]))
-  }
-  colnames(.Object@predictions) <- classifier_names
->>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449
 
   # calculate beta, mu and rstar
   .Object@actual_prevalence <- p
@@ -184,17 +165,10 @@ setMethod("predict_performance", "FDensemble", function(.Object, actual_performa
   if (ncol(.Object@rank_matrix) != ncol(.Object@predictions)) {
     .Object@rank_matrix <- .Object@rank_matrix[, -ncol(.Object@rank_matrix)]
   }
-<<<<<<< HEAD
   #colnames(.Object@rank_matrix) <- classifier_names
   .Object@rank_matrix <- cbind(.Object@rank_matrix, A_FD=.Object@estimated_rank)
 
   #cat('... Ensemble AUC:', .Object@ensemble_auc, '\n')
-=======
-  colnames(.Object@rank_matrix) <- classifier_names
-  .Object@rank_matrix <- cbind(.Object@rank_matrix, A_FD=.Object@estimated_rank)
-
-  cat('... Ensemble AUC:', .Object@ensemble_auc, '\n')
->>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449
   cat('... AUC list:', .Object@actual_performance, '\n')
   cat('... beta list:', .Object@beta, '\n')
   cat('... mu list:', .Object@mu, '\n')
@@ -249,14 +223,8 @@ setMethod("plot_cor", "FDensemble", function(.Object, filename='cor.pdf', class_
     scale_x_discrete(expand = c(0, 0)) +
     scale_y_discrete(expand = c(0, 0)) +
     theme(axis.text.x = element_text(angle = 45, vjust = 1,size = 9, hjust = 1)) +
-<<<<<<< HEAD
     geom_text(aes(x=Var1, y=Var2, label=round(value, digits = 3)), size=2) +
     ggtitle(class_flag)
-
-=======
-    geom_text(aes(label=round(value,digits = 3)), size=2) +
-    annotate(geom="text", x=1, y=.Object@nmethods+1, label=class_flag, color="black", hjust=0)
->>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449
   if (!legend_flag) {
     g <- g + theme(legend.position = "none")
   }
