@@ -9,6 +9,7 @@
 
 library(ggplot2)
 library(ggpubr)
+library(ggrepel)
 library(tictoc)
 library(data.table)
 
@@ -23,6 +24,7 @@ setClass("FDensemble",
                         rstar = "numeric",
                         nsamples = "numeric",
                         nmethods = "numeric",
+                        method_names = "character",
                         ensemble_auc = "numeric",
                         actual_performance = "numeric",
                         actual_prevalence = "numeric",
@@ -40,6 +42,14 @@ setMethod("initialize", "FDensemble", function(.Object, predictions, ...) {
   .Object@predictions <- predictions
   .Object@nsamples <- nrow(predictions)
   .Object@nmethods <- ncol(predictions)
+
+  # set base classifier names
+  if (is.null(colnames(predictions))) {
+    colnames(predictions) <- 1:.Object@nmethods
+  }
+  .Object@method_names <- colnames(predictions)
+  names(.Object@method_names) <- colnames(predictions)
+
   .Object@logit_matrix <- apply(predictions, 2, frankv)
   .Object@rank_matrix <- apply(predictions, 2, frankv)
   .Object@estimated_label <- as.factor(c('class1', rep('class2', .Object@nsamples-1)))
@@ -80,6 +90,10 @@ setMethod("calculate_performance", "FDensemble", function(.Object, actual_label,
 
   # calculate auc using labels
   .Object@actual_performance <- apply(.Object@predictions, 2, auc.rank, actual_label)
+  for (i in seq_along(.Object@actual_performance)) {
+    .Object@method_names[i] <- paste0(.Object@method_names[i], '\n', 'A=',
+                                      round(.Object@actual_performance[i], digits=3))
+  }
 
   # calculate beta, mu and rstar
   .Object@actual_prevalence <- attr(actual_label, 'rho')
@@ -124,13 +138,10 @@ setMethod("predict_performance", "FDensemble", function(.Object, actual_performa
   .Object@actual_performance <- actual_performance
   .Object@estimated_performance <- actual_performance
 
-  org_names <- colnames(.Object@predictions)
-  classifier_names <- list()
-  for (i in seq_along(actual_performance)) {
-    classifier_names <- c(classifier_names,
-                          paste0('M', i, '_', round(actual_performance[i], digits=3), '\n',org_names[i]))
+  for (i in seq_along(.Object@actual_performance)) {
+    .Object@method_names[i] <- paste0(.Object@method_names[i], '\n', 'A=',
+                                      round(.Object@actual_performance[i], digits=3))
   }
-  colnames(.Object@predictions) <- classifier_names
 
   # calculate beta, mu and rstar
   .Object@actual_prevalence <- p
@@ -154,10 +165,10 @@ setMethod("predict_performance", "FDensemble", function(.Object, actual_performa
   if (ncol(.Object@rank_matrix) != ncol(.Object@predictions)) {
     .Object@rank_matrix <- .Object@rank_matrix[, -ncol(.Object@rank_matrix)]
   }
-  colnames(.Object@rank_matrix) <- classifier_names
+  #colnames(.Object@rank_matrix) <- classifier_names
   .Object@rank_matrix <- cbind(.Object@rank_matrix, A_FD=.Object@estimated_rank)
 
-  cat('... Ensemble AUC:', .Object@ensemble_auc, '\n')
+  #cat('... Ensemble AUC:', .Object@ensemble_auc, '\n')
   cat('... AUC list:', .Object@actual_performance, '\n')
   cat('... beta list:', .Object@beta, '\n')
   cat('... mu list:', .Object@mu, '\n')
@@ -212,8 +223,9 @@ setMethod("plot_cor", "FDensemble", function(.Object, filename='cor.pdf', class_
     scale_x_discrete(expand = c(0, 0)) +
     scale_y_discrete(expand = c(0, 0)) +
     theme(axis.text.x = element_text(angle = 45, vjust = 1,size = 9, hjust = 1)) +
-    geom_text(aes(label=round(value,digits = 3)), size=2) +
-    annotate(geom="text", x=1, y=.Object@nmethods+1, label=class_flag, color="black", hjust=0)
+    geom_text(aes(x=Var1, y=Var2, label=round(value, digits = 3)), size=2) +
+    ggtitle(class_flag)
+
   if (!legend_flag) {
     g <- g + theme(legend.position = "none")
   }
@@ -221,6 +233,65 @@ setMethod("plot_cor", "FDensemble", function(.Object, filename='cor.pdf', class_
   ggsave(filename, g, width=8, height=7)
   print(g)
   #return(cor_m)
+})
+
+setGeneric("plot_ensemble", function(.Object, filename='ens.pdf', ...) {standardGeneric("plot_ensemble")})
+
+setMethod("plot_ensemble", "FDensemble", function(.Object, filename='ens.pdf', method='AUC', alpha=0.95, amax=0) {
+  # prepare data
+  method_list = c('auc', 'asof', 'correlation', 'random', 'invauc')
+  if (!(method %in% method_list)) {
+    cat('... possible options for method: ', method_list)
+    return (FALSE)
+  }
+
+  if (method == 'auc') {
+    order_index = order(.Object@actual_performance)
+  } else if (method == 'invauc') {
+    order_index = order(.Object@actual_performance, decreasing = TRUE)
+  } else if (method == 'asof') {
+    order_index = 1:.Object@nmethods
+  } else if (method == 'correlation') {
+    order_index = cal_least_cor_list(.Object)
+  } else if (method == 'random') {
+    order_index = sample(1:.Object@nmethods)
+  }
+
+  agg_logit <- t(apply(.Object@logit_matrix[,order_index], 1, cumsum))
+  agg_auc <- apply(agg_logit, 2, auc.rank, .Object@actual_label)
+  min_auc <- min(.Object@actual_performance)
+  max_auc <- max(.Object@actual_performance)
+  df <- data.table(x=1:.Object@nmethods, agg_auc=agg_auc, algorithm=.Object@method_names[order_index])
+
+  # check ensemble auc > max base auc
+  if (max(agg_auc) > max_auc) {
+    label_x = .Object@nmethods
+    hjust = 1
+  } else {
+    label_x = 1
+    hjust = 0
+  }
+  print(df)
+
+  # generate plot
+  g <- ggplot(df) + geom_line(aes(x, agg_auc)) +
+    geom_point(aes(x,agg_auc)) + theme_classic() +
+    geom_label_repel(aes(x=x, y=agg_auc, label=algorithm),
+                     size=3.5, fill=cbPalette[3], color='white', segment.color='gray',
+                     box.padding = 0.75, alpha=alpha) +
+    xlab('Number of methods') + ylab('Aggregated AUC') +
+    ggtitle(paste0('Sequentially Aggregated Classifiers ordered by ', method)) +
+    geom_hline(yintercept = min_auc, linetype='dashed', color=cbPalette[6], alpha=0.7) +
+    geom_hline(yintercept = max_auc, linetype='dashed', color=cbPalette[2], alpha=0.7) +
+    annotate(geom='text', x=.Object@nmethods, y=min_auc+0.001, label='min. of base classifiers', hjust=1, vjust=0) +
+    annotate(geom='text', x=label_x, y=max_auc-0.001, label='max. of base classifiers', hjust=hjust, vjust=1)
+
+  if (amax > 0) {
+    g <- g + ylim(c(min_auc, amax))
+  }
+
+  ggsave(filename, width=8, height=6)
+  print(g)
 })
 
 setGeneric("plot_single", function(.Object, target, ...) {standardGeneric("plot_single")})
@@ -253,3 +324,34 @@ setMethod("plot_single", "FDensemble", function(.Object, target, c, n=100, m=100
     print(g)
   }
 })
+
+cal_least_cor_list <- function(.Object) {
+  # reorder by AUC
+  colorder <- order(.Object@actual_performance, decreasing = TRUE)
+
+  # create correlation matrix
+  cor_m <- abs(cor(.Object@rank_matrix[.Object@actual_label == attr(.Object@actual_label, 'class1'),
+                                   colorder]))
+  #print(cor_m)
+
+  idx_lc <- c(which.max(cor_m[1,]), which.min(cor_m[1,]))
+  cor_m <- cor_m[,-idx_lc]
+  names_lc <- names(idx_lc)
+  for (i in seq(2:(.Object@nmethods-2))) {
+    # find least correlated method
+    corsum <- colSums(cor_m[idx_lc,])
+
+    j <- which.min(corsum)
+    idx_lc <- c(idx_lc, j)
+
+    if (ncol(cor_m) > 2) {
+      names_lc <- c(names_lc, names(j))
+    } else {
+      names_lc <- c(names_lc, names(which.min(corsum)), names(which.max(corsum)))
+    }
+    cor_m <- cor_m[,-j]
+  }
+
+  #print(idx_lc)
+  return(names_lc)
+}

@@ -1,0 +1,150 @@
+---
+title: "kaggle"
+author: "Sungcheol Kim"
+date: "3/3/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(FDclassifieR)
+library(dplyr)
+```
+
+## Porto Seguro's Safe Driver Prediction
+
+```{r}
+dirname <- 'data_porto_maxGini_0.29'
+flist <- list.files(path=dirname, pattern='0.*.csv')
+auclist <- (as.numeric(gsub(".csv", "", flist)) + 1)/2
+
+# calculate prevalence from train data set
+train <- fread(paste0(dirname, '/', 'train.csv'), na.strings=c("-1","-1.0"))
+#train <- train %>%
+#  mutate_at(vars(ends_with("cat")), as.factor) %>%
+#  mutate_at(vars(ends_with("bin")), as.logical) %>%
+#  mutate(target = as.factor(target))
+
+rho <- sum(y == 1)/length(y)
+  
+# create prediction matrix
+predictions <- matrix(nrow = 892816, ncol=length(flist))
+
+i <- 1
+for (f in flist) {
+  tmp <- fread(paste0(dirname, '/', f))
+  predictions[ ,i] <- tmp[[2]]
+  i <- i + 1
+}
+
+colnames(predictions) <- mapply(paste0, rep('A',length(flist)), auclist)
+
+dim(predictions)
+```
+
+```{r}
+head(predictions)
+```
+
+```{r}
+hist(predictions[, 7])
+```
+
+# Test SUMMA
+```{r}
+library(summa)
+ksumma <- summa::summa(predictions, "rank")
+```
+
+```{r}
+print(max(ksumma@estimated_rank))
+print(min(ksumma@estimated_rank))
+hist(ksumma@estimated_rank)
+```
+
+```{r}
+rmax <- max(ksumma@estimated_rank)
+rmin <- min(ksumma@estimated_rank)
+submit <- data.table(id=tmp$id, target=(ksumma@estimated_rank - rmin)/(rmax-rmin))
+fwrite(submit, file='submission.csv')
+```
+
+# Test FD Ensemble
+
+```{r}
+fde1 <- fdensemble(predictions)
+```
+
+```{r}
+fde1 <- predict_performance(fde1, auclist, rho, alpha=1)
+```
+
+```{r}
+print(max(fde1@estimated_rank))
+print(min(fde1@estimated_rank))
+hist(fde1@estimated_rank)
+```
+
+```{r}
+hist(fde1@predictions[ ,4])
+```
+
+```{r}
+submit <- data.table(id=tmp$id, target=fde1@estimated_prob)
+fwrite(submit, file='submission.csv')
+```
+
+```{r}
+plot_cor(fde1, class_flag='positive')
+```
+
+```{r}
+cor(fde1@rank_matrix)
+```
+
+## Build model on training data set 
+
+```{r}
+set.seed(1024)
+
+tmp <- train[, c(3:59,2)] %>% sample_n(8000)
+cat_vars <- names(tmp)[grepl('_cat$', names(tmp))]
+tmp <- tmp %>%
+    mutate_at(.vars = cat_vars, .funs = as.factor)
+tmp <- model.matrix(~ . - 1, data = tmp)
+```
+
+```{r}
+tmp <- as.data.frame(tmp)
+tmp$target <- as.factor(ifelse(tmp$target == 1, 'filed', 'not'))
+
+inTraining0 <- createDataPartition(tmp$target, p = .75, list = FALSE)
+training <- tmp[ inTraining0,]
+testing  <- tmp[-inTraining0,]
+testingY <- as_label(y[-inTraining0])
+```
+
+```{r}
+table(training$target)
+```
+
+```{r}
+model_list <- c('nnet', 'rda', 'svmLinear', 'svmRadial', 'pls', 'knn', 'earth', 'avNNet', 'mlp', 'nb', 'rf', 'rpart', 'ctree', 'C5.0', 'gbm', 'bayesglm', 'glm', 'glmnet', 'simpls')
+t1 <- mtrainer('rf', dataInfo = 'Porto')
+```
+
+```{r}
+t1 <- train(t1, target~., training, update=T)
+```
+
+```{r}
+t1 <- t1 %>%
+  addmodel.mtrainer(c('rda', 'pls')) %>%
+  train(target~., training)
+```
+
+```{r}
+plot(t1)
+```
+

@@ -85,7 +85,7 @@ create.scores.gaussian <- function(y, auc=0.8, tol=0.0001, max_iter=2000) {
 
     count <- count + 1
   }
-  msg <- paste0('Final AUC: ', simulated_auc, ' (iter: ', count, ') mu2: ', mu)
+  msg <- paste0('Final AUC: ', round(simulated_auc, digits = 4), ' (iter: ', count, ') mu2: ', round(mu, digits = 4))
   message(msg)
 
   return(score)
@@ -120,8 +120,8 @@ create_predictions <- function(n=1000, m=30, p=0.6, auclist=NULL, y=NULL, method
     i <- i + 1
   }
 
-  gen_name <- function(x) { paste0('A_', round(x, digits=2)) }
-  colnames(res) <- sapply(auclist, gen_name)
+  gen_name <- function(x) { paste0('G', round(x, digits=1)) }
+  colnames(res) <- sapply(1:m, gen_name)
 
   return (list(predictions = res, actual_labels = y, actual_performance = auclist))
 }

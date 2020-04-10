@@ -1,0 +1,101 @@
+---
+title: "kaggle"
+author: "Sungcheol Kim"
+date: "3/3/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+```
+
+## west nile virus prediction
+
+```{r cars}
+dirname <- 'data_west_nile_maxAUC_0.85'
+flist <- list.files(path=dirname, pattern='0.*.csv')
+auclist <- as.numeric(gsub(".csv", "", flist))
+
+train <- fread(paste0(dirname, '/', 'train.csv'))
+y <- as.factor(train$WnvPresent)
+rho <- sum(y == 1)/length(y)
+
+predictions <- matrix(nrow = 116293, ncol=length(flist))
+
+i <- 1
+for (f in flist) {
+  tmp <- fread(paste0(dirname, '/', f))
+  predictions[ ,i] <- tmp[[2]]
+  i <- i + 1
+}
+
+dim(predictions)
+```
+
+```{r}
+head(predictions)
+```
+
+```{r}
+hist(predictions[, 1])
+```
+
+```{r}
+library(summa)
+ksumma <- summa::summa(predictions, "rank")
+```
+
+```{r}
+plot.scores(ksumma@estimated_rank, as.factor(ksumma@estimated_label))
+```
+
+```{r}
+fde1 <- fdensemble(predictions[,1:9])
+```
+
+```{r}
+fde1 <- predict_performance(fde1, auclist[1:9], rho, alpha=1)
+```
+
+```{r}
+idx <- order(fde1@estimated_rank)
+plot(fde1@estimated_rank[idx])
+lines(fde1@logit_matrix[idx,10], col='green')
+lines(fde1@logit_matrix[idx,9], col='red')
+lines(fde1@logit_matrix[idx,8], col='blue')
+```
+
+```{r}
+plot.scores(fde1@estimated_rank, fde1@estimated_label)
+```
+
+```{r}
+table(fde1@estimated_label)
+```
+
+```{r}
+plot(fde1@estimated_rank, fde1@estimated_prob)
+```
+
+```{r}
+rmax <- max(ksumma@estimated_rank)
+rmin <- min(ksumma@estimated_rank)
+submit <- data.table(Id=seq(1,116293), WnvPresent=(ksumma@estimated_rank - rmin)/(rmax-rmin))
+fwrite(submit, file='submission.csv')
+```
+
+```{r}
+submit <- data.table(Id=seq(1,116293), WnvPresent=fde1@estimated_prob)
+fwrite(submit, file='submission.csv')
+```
+
+```{r}
+plot_cor(fde1, class_flag='negative')
+```
+
+```{r}
+cor(fde1@rank_matrix)
+```
+
+

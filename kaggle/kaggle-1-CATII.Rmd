@@ -1,0 +1,104 @@
+---
+title: "kaggle"
+author: "Sungcheol Kim"
+date: "3/3/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+```
+
+## Categorical Feature Encoding Challenge II
+
+```{r cars}
+dirname <- 'data_cat_maxAUC_0.78'
+flist <- list.files(path=dirname, pattern='0.*.csv')
+auclist <- as.numeric(gsub(".csv", "", flist))
+
+train <- fread(paste0(dirname, '/', 'train.csv'))
+y <- as.factor(train$target)
+rho <- sum(y == 1)/length(y)
+
+predictions <- matrix(nrow = 400000, ncol=length(flist))
+
+i <- 1
+for (f in flist) {
+  tmp <- fread(paste0(dirname, '/', f))
+  predictions[ ,i] <- tmp[[2]]
+  i <- i + 1
+}
+
+dim(predictions)
+```
+
+```{r}
+head(predictions)
+```
+
+```{r}
+hist(predictions[, 1])
+```
+
+```{r}
+library(summa)
+ksumma <- summa::summa(predictions, "rank")
+```
+
+```{r}
+hist(ksumma@estimated_rank)
+```
+
+```{r}
+fde1 <- fdensemble(predictions[,1:8])
+```
+
+```{r}
+fde1 <- predict_performance(fde1, auclist[1:8], rho, alpha = 1)
+```
+
+```{r}
+plot_cor(fde1, class_flag='positive')
+```
+
+```{r}
+hist(fde1@predictions[ ,4])
+```
+
+```{r}
+submit <- data.table(id=seq(600000,999999), target=fde1@estimated_rank)
+fwrite(submit, file='submission.csv')
+```
+
+```{r}
+plot_cor(fde1, legend_flag=T)
+```
+
+```{r}
+cor(fde1@rank_matrix)
+```
+
+
+## check r_summa
+
+
+```{r}
+library(summa)
+
+data_binary <- create_predictions(3000, 30, 0.3, "rank")
+str(data_binary)
+```
+
+```{r}
+summ <- summa(data_binary$predictions, "rank")
+```
+
+```{r}
+summ <- calculate_performance(summ, data_binary$actual_labels)
+```
+
+```{r}
+summa_plot(summ)
+```
+

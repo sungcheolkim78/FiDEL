@@ -80,3 +80,7 @@ saveRDS(testingY, 'iono_m8_y.RData')
 saveRDS(t1, 'iono_all.RData')
 ```
 
+```{r}
+plot_ensemble(fde1, method='correlation', amax=1)
+```
+
