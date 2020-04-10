@@ -9,10 +9,7 @@
 
 library(ggplot2)
 library(ggpubr)
-<<<<<<< HEAD
 library(ggrepel)
-=======
->>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449
 library(tictoc)
 library(data.table)
 
@@ -269,7 +266,6 @@ setMethod("plot_cor", "FDensemble", function(.Object, filename='cor.pdf', class_
   #return(cor_m)
 })
 
-<<<<<<< HEAD
 setGeneric("plot_ensemble", function(.Object, filename='ens.pdf', ...) {standardGeneric("plot_ensemble")})
 
 setMethod("plot_ensemble", "FDensemble", function(.Object, filename='ens.pdf', method='AUC', alpha=0.95, amax=0) {
@@ -329,8 +325,6 @@ setMethod("plot_ensemble", "FDensemble", function(.Object, filename='ens.pdf', m
   print(g)
 })
 
-=======
->>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449
 setGeneric("plot_single", function(.Object, target, ...) {standardGeneric("plot_single")})
 
 setMethod("plot_single", "FDensemble", function(.Object, target, c, n=100, m=100) {
@@ -361,7 +355,6 @@ setMethod("plot_single", "FDensemble", function(.Object, target, c, n=100, m=100
     print(g)
   }
 })
-<<<<<<< HEAD
 
 cal_least_cor_list <- function(.Object) {
   # reorder by AUC
@@ -393,5 +386,3 @@ cal_least_cor_list <- function(.Object) {
   #print(idx_lc)
   return(names_lc)
 }
-=======
->>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449
