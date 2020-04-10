@@ -56,7 +56,11 @@ fde1 <- predict_performance(fde1, auclist, attr(testingY, 'rho'))
 ```
 
 ```{r}
+<<<<<<< HEAD
 plot_cor(fde1, class_flag = 'positive')
+=======
+plot_cor(fde1, class_flag = 'negative')
+>>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449
 ```
 
 ```{r}
@@ -72,7 +76,66 @@ store.mtrainer(t1, 'sonar_m8_pre.RData')
 saveRDS(testingY, 'sonar_m8_y.RData')
 ```
 
+<<<<<<< HEAD
 ```{r}
 plot_ensemble(fde1, method='correlation', alpha=0.8)
+=======
+# Using caretEnsemble
+
+```{r}
+library(mlbench)
+library(tictoc)
+library('caret')
+library("caretEnsemble")
+
+data(Sonar)
+inTraining0 <- createDataPartition(Sonar$Class, p = .75, list = FALSE)
+training <- Sonar[ inTraining0,]
+testing  <- Sonar[-inTraining0,]
+#testingY <- as_label(Sonar[-inTraining0, ncol(Sonar)])
+
+my_control <- trainControl(
+  method="boot",
+  number=10,
+  savePredictions="final",
+  classProbs=TRUE,
+  index=createResample(training$Class, 10),
+  summaryFunction=twoClassSummary
+  )
+
+seeds <- vector(mode = "list", length = 51)
+for(i in 1:50) seeds[[i]] <- sample.int(1000, 22)
+seeds[[51]] <- sample.int(1000, 1)
+my_control2 <- trainControl(
+  method = "repeatedcv", repeats = 5,
+  savePredictions="final", 
+  classProbs = TRUE, summaryFunction = twoClassSummary,
+  search = "random", seeds = seeds)
+
+tic()
+
+model_list <- caretList(
+  Class~., data=training,
+  savePredictions="final",
+  trControl=my_control2,
+  methodList=c('nnet', 'rda', 'ctree', 'C5.0', 'gbm')
+  )
+
+toc()
+```
+
+```{r}
+p <- predict(model_list, newdata=testing)
+```
+
+```{r}
+library(FDclassifieR)
+testingY <- as_label(Sonar[-inTraining0, ncol(Sonar)])
+fde1 <- fde(p, testingY)
+```
+
+```{r}
+plot_cor(fde1)
+>>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449
 ```
 

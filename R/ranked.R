@@ -303,6 +303,13 @@ ensemble.fermi <- function(predictions, y, alpha = 1.0, method='+', debug.flag =
   }
 
   if(debug.flag) {
+<<<<<<< HEAD
+=======
+    #temp <- as.data.frame(res)
+    #temp[['summa+']] <- rowMeans(res)
+    #plot(temp)
+    #print(cor(temp, method = "spearman"))
+>>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449
     print(fd)
   }
 

@@ -80,7 +80,10 @@ saveRDS(testingY, 'iono_m8_y.RData')
 saveRDS(t1, 'iono_all.RData')
 ```
 
+<<<<<<< HEAD
 ```{r}
 plot_ensemble(fde1, method='correlation', amax=1)
 ```
 
+=======
+>>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449

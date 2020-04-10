@@ -142,12 +142,20 @@ plot.pcr <- function(pcr_data) {
   df <- data.table(x=pcr_data$rank, y=pcr_data$prob, sd=pcr_data$sd/sqrt(attr(pcr_data, 'M')))
   auclist <- attr(pcr_data, 'auclist')
 
+<<<<<<< HEAD
   l <- nls(y ~ fermi.b(x, b, m), data=df, start = list(b=attr(pcr_data, 'beta'), m=attr(pcr_data, 'mu')))
+=======
+  l <- nls(y ~ fermi(x, l1, l2), data=df, start = list(l1=attr(pcr_data, 'l1'), l2=attr(pcr_data, 'l2')))
+>>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449
   l1 <- coef(l)
   fy <- fermi.b(df$x, attr(pcr_data, 'beta'), attr(pcr_data, 'mu'))
 
   msg1 <- sprintf("Mean AUC: %.4f\nStd. of AUC: %.4f", mean(auclist), sd(auclist))
+<<<<<<< HEAD
   msg2 <- sprintf("beta: %.4f\nmu: %.4f", attr(pcr_data, 'beta'), attr(pcr_data, 'mu'))
+=======
+  msg2 <- sprintf("l1: %.4f\nl2: %.4f", attr(pcr_data, 'l1'), attr(pcr_data, 'l2'))
+>>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449
   msg3 <- sprintf("N0: %d\nN: %d\nM: %d", attr(pcr_data, 'N.data'), attr(pcr_data, 'N'), attr(pcr_data, 'M'))
 
   g <- ggplot(data=df) + geom_point(aes(x=x, y=y)) +

@@ -79,6 +79,20 @@ mtrainer <- function(x = list(), dataInfo='temp', fitControl = NULL) {
   validate_mtrainer(new_mtrainer(x, dataInfo, fitControl))
 }
 
+<<<<<<< HEAD
+=======
+#' Calculate AUC using rank
+#'
+#' Function to calculate AUC from score and ground truth label using rank sum formula
+#'
+#' @param scores A list of values from binary classifier
+#' @param y A list of labels
+#' @param class1 A name of class 1
+#' @return the area under receiver operating curve
+#' @examples
+#' auc.rank(scores, y)
+#' @export
+>>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449
 update.mtrainer <- function(mtrainer, newlist) {
   mtrainer$model_list <- newlist
   validate_mtrainer(mtrainer)
