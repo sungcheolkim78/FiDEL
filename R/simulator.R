@@ -24,10 +24,11 @@ create.labels <- function(N=100, rho=0.5) {
 }
 
 as_label <- function(ylist, class1=NULL) {
-  if (any('label' %in% class(ylist))) return(ylist)
-  if (!any('factor' %in% class(ylist))) ylist <- as.factor(ylist)
+  if (any('label' %in% class(ylist))) { return(ylist) }
+  if (!any('factor' %in% class(ylist))) { ylist <- as.factor(ylist) }
 
   llist <- levels(ylist)
+  stopifnot(!is.null(llist))
 
   if (is.null(class1)) {
     class1 <- llist[[1]]

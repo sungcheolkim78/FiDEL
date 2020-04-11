@@ -102,3 +102,32 @@ summ <- calculate_performance(summ, data_binary$actual_labels)
 summa_plot(summ)
 ```
 
+## Train data
+
+```{r}
+train <- as.data.table(readr::read_csv('data-CATII.csv.bz2'))
+
+train$target <- ifelse(train$target == 1, "Yes", "No")
+train <- train[sample(seq_along(train$target), 5000), ]
+```
+
+```{r}
+table(train$target)
+```
+
+```{r}
+inTraining0 <- createDataPartition(train$target, p = .75, list = FALSE)
+training <- train[ inTraining0,]
+testing  <- train[-inTraining0,]
+testingY <- as_label(train$target, class1=1)
+```
+
+```{r}
+model_list <- c('nnet', 'rda', 'svmLinear', 'svmRadial', 'pls', 'knn', 'earth', 'avNNet', 'mlp', 'nb', 'rf', 'rpart', 'ctree', 'C5.0', 'gbm', 'bayesglm', 'glm', 'glmnet', 'simpls')
+t1 <- mtrainer(c('rda', 'knn'), dataInfo = 'CATII')
+```
+
+```{r}
+t1 <- train(t1, target~., training, update=TRUE)
+```
+
