@@ -109,7 +109,7 @@ setMethod("calculate_performance", "FDensemble", function(.Object, actual_label,
     .Object@logit_matrix[, m] <- .Object@beta[m]^alpha *(.Object@rstar[m] - .Object@logit_matrix[, m])
   }
   .Object@estimated_logit <- -rowSums(.Object@logit_matrix)
-  .Object@estimated_label <- as_label(ifelse(.Object@estimated_logit >0, 'class1', 'class2'))
+  .Object@estimated_label <- to_label(ifelse(.Object@estimated_logit >0, 'class1', 'class2'), asfactor=TRUE)
   .Object@estimated_prob <- 1/(1+exp(-.Object@estimated_logit))
   .Object@estimated_rank <- frankv(.Object@estimated_logit)
 
@@ -157,7 +157,7 @@ setMethod("predict_performance", "FDensemble", function(.Object, actual_performa
     .Object@logit_matrix[, m] <- .Object@beta[m]^alpha * (.Object@rstar[m] - .Object@logit_matrix[, m] )
   }
   .Object@estimated_logit <- -rowMeans(.Object@logit_matrix)
-  .Object@estimated_label <- as_label(ifelse(.Object@estimated_logit >0, 'class1', 'class2'))
+  .Object@estimated_label <- to_label(ifelse(.Object@estimated_logit >0, 'class1', 'class2'))
   .Object@estimated_prob <- 1/(1+exp(-.Object@estimated_logit))
   .Object@estimated_rank <- frankv(.Object@estimated_logit)
   .Object@ensemble_auc <- auc.rank(.Object@estimated_logit, .Object@estimated_label)
@@ -353,4 +353,49 @@ cal_least_cor_list <- function(.Object) {
 
   #print(idx_lc)
   return(names_lc)
+}
+
+# calculate ensemble score using fermi-dirac statistics
+ensemble.fermi <- function(predictions, y, alpha = 1.0, method='+', debug.flag = FALSE) {
+  M <- ncol(predictions)
+  N <- nrow(predictions)
+
+  res <- matrix(0, nrow=N, ncol=M)
+  fd <- matrix(0, nrow=M, ncol=4)
+  auclist <- apply(predictions, 2, auc.rank, y)
+  fd[, 2:4] <- t(sapply(auclist, get_fermi, attr(y, 'rho'), N=N))
+  fd[, 1] <- t(auclist)
+
+  for(m in 1:M) {
+    res[ , m] <- frankv(predictions[, m])
+    if (method == '+')
+      res[ , m] <- -fd[m, 2]^alpha *(fd[m, 4] - res[, m])
+    else
+      res[ , m] <- 12*N*(fd[m, 1] - 0.5)/(N*N - 1) *((N+1.)/2.- res[, m])
+  }
+
+  if(debug.flag) {
+    print(fd)
+  }
+
+  return(rowSums(res))
+}
+
+# find eigen vector of estimate \hat{R} of the rank-one matrix R
+# leading eigen vector is close to the true one
+# adapted from r-summa (https://github.com/learn-ensemble/R-SUMMA/blob/master/R/matrix_calculations.R)
+find_eigen <- function(covMatrix, tol=1e-6, niter_max=10000) {
+  eig <- eigen(covMatrix, symmetric=TRUE)
+  eig_all <- vector()
+
+  l <- 0
+  iter <- 1
+  while (abs(l - eig$values[1]) > tol & (iter < niter_max)) {
+    l <- eig$values[1]
+    r <- (covMatrix - diag(diag(covMatrix)) + diag(l[1]*eig$vectors[, 1]^2))
+    eig <- eigen(r, symmetric=TRUE)
+    eig_all <- c(eig_all, eig$values[1])
+    iter <- iter + 1
+  }
+  return (list(eig=eig, eig_all=eig_all))
 }

@@ -11,7 +11,13 @@ erf.inv <- function(x) qnorm((x + 1)/2)/sqrt(2)
 
 fermi.l <- function(x, l1, l2) 1/(1+exp(l2 * x + l1))
 
-fermi.b <- function(x, b, m) 1/(1+exp(b*(x - m)))
+fermi.b <- function(x, b, m, normalized=FALSE) {
+  if (normalized) {
+    return (1/(1 + exp(b/length(x)*(x - m*length(x)))))
+  } else {
+    return (1/(1 + exp(b*(x - m))))
+  }
+}
 
 # not used
 confMatrix <- function(score, threshold=0.0, first = TRUE) {

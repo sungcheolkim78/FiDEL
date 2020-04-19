@@ -1,12 +1,9 @@
 # Simulator.R
 #
 # Sungcheol Kim @ IBM
-# 2020/01/15
 #
-# version 1.0
-
-library(purrr)
-library(data.table)
+# version 1.0.0 - 2020/01/15
+# version 1.0.1 - 2020/04/13 - clean up and check
 
 # generate labels - class1 and class2
 create.labels <- function(N=100, rho=0.5) {
@@ -14,21 +11,15 @@ create.labels <- function(N=100, rho=0.5) {
   idx <- sample(N, N*rho)
   res[idx] <- 'Class1'
   res <- as.factor(res)
-  attr(res, 'class1') <- 'Class1'
-  attr(res, 'class2') <- 'Class2'
-  attr(res, 'N') <- N
-  attr(res, 'rho') <- rho
-  attr(res, 'class') <- c('factor', 'label')
 
-  return(res)
+  return (to_label(res))
 }
 
-as_label <- function(ylist, class1=NULL) {
-  if (any('label' %in% class(ylist))) { return(ylist) }
-  if (!any('factor' %in% class(ylist))) { ylist <- as.factor(ylist) }
-
-  llist <- levels(ylist)
-  stopifnot(!is.null(llist))
+# add information about labels
+to_label <- function(ylist, class1=NULL, asfactor=FALSE) {
+  # check y is binary system
+  llist <- unique(ylist)
+  if (length(llist) > 2) { stop(paste0('... Not binary case: ', llist)) }
 
   if (is.null(class1)) {
     class1 <- llist[[1]]
@@ -40,36 +31,29 @@ as_label <- function(ylist, class1=NULL) {
   attr(ylist, 'class1') <- class1
   attr(ylist, 'class2') <- class2
   attr(ylist, 'N') <- length(ylist)
+  attr(ylist, 'N1') <- sum(ylist == class1)
+  attr(ylist, 'N2') <- sum(ylist == class2)
   attr(ylist, 'rho') <- sum(ylist == class1)/length(ylist)
-  attr(ylist, 'class') <- c('factor', 'label')
 
-  return(ylist)
+  if (asfactor) return (as.factor(ylist))
+  else return (ylist)
 }
 
 # binary classifier using Gaussian score distribution
-create.scores.gaussian <- function(y, auc=0.8, tol=0.0001, max_iter=2000) {
+create.scores.gaussian <- function(auc, y, tol=0.0001, max_iter=2000) {
   # check key numbers
 
-  if (any('label' == class(y))) {
-    N1 <- floor(attr(y, 'N') * attr(y, 'rho'))
-    N2 <- attr(y, 'N') - N1
-    N <- N1 + N2
-    class1 <- attr(y, 'class1')
-    class2 <- attr(y, 'class2')
-  } else {
-    lbs <- levels(y)
-    stopifnot(length(lbs) == 2)
-    class1 <- lbs[[1]]
-    class2 <- lbs[[2]]
+  if (is.null(attr(y, 'rho')) || attr(y, 'rho') == 0) { y <- to_label(y) }
 
-    N <- length(y)
-    N1 <- sum(y == class1)
-    N2 <- N - N1
-  }
+  N <- attr(y, 'N')
+  N1 <- floor(attr(y, 'N') * attr(y, 'rho'))
+  N2 <- N - N1
 
   count <- 1
+
   # initial mu2 value
   mu <- 2 * erf.inv(2*auc - 1)
+  max_iter <- max_iter / ((auc - 0.5) * 10)
 
   # repeat until the measured AUC become the target AUC
   simulated_auc = 0.5
@@ -79,8 +63,8 @@ create.scores.gaussian <- function(y, auc=0.8, tol=0.0001, max_iter=2000) {
 
     score <- rep(0, N)
 
-    score[y == class1] <- score1
-    score[y == class2] <- score2
+    score[y == attr(y, 'class1')] <- score1
+    score[y == attr(y, 'class2')] <- score2
 
     simulated_auc <- auc.rank(score, y)
 
@@ -94,16 +78,16 @@ create.scores.gaussian <- function(y, auc=0.8, tol=0.0001, max_iter=2000) {
 }
 
 # simple code to generate AUC list between initial and final values
-create.auclist <- function(initial, final, N) {
+create.auclist <- function(initial=0.51, final=0.91, N=10) {
   if (initial <= 0.5) { initial = 0.501 }
   if (final >= 1.0) { final = 1.0 }
 
-  delta <- (final - initial)/N
-  initial + (0:N)*delta
+  delta <- (final - initial)/(N-1)
+  initial + seq(0, N-1)*delta
 }
 
-# generate classifer based on SUMMA and SUMMA+ method
-create_predictions <- function(n=1000, m=30, p=0.6, auclist=NULL, y=NULL, method='rank') {
+# generate prediction matrix for classifer based on Gaussian score
+create_predictions <- function(n=1000, m=20, p=0.6, auclist=NULL, y=NULL, method='rank') {
   if (is.null(auclist)) {
     auclist <- create.auclist(0.51, 0.99, m)
   } else {
@@ -113,14 +97,7 @@ create_predictions <- function(n=1000, m=30, p=0.6, auclist=NULL, y=NULL, method
     y <- create.labels(N=n, rho=p)
   }
 
-  res <- matrix(nrow=n, ncol=m)
-  i <- 1
-
-  for (a in auclist) {
-    gs <- create.scores.gaussian(y, auc=a, tol=0.0001, max_iter=1000)
-    res[ , i] <- gs
-    i <- i + 1
-  }
+  res <- sapply(auclist, create.scores.gaussian, y, tol=0.0001)
 
   gen_name <- function(x) { paste0('G', round(x, digits=1)) }
   colnames(res) <- sapply(1:m, gen_name)

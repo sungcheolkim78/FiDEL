@@ -9,13 +9,34 @@ library(FDclassifieR)
 ```
 
 ```{r}
-y <- create.labels(N=10000, rho=0.2)
+y <- create.labels(N=10000, rho=0.5)
 table(y)
 ```
 
 ```{r}
 gs <- create.scores.gaussian(y, auc=0.9)
 plot.scores(gs,y)
+```
+
+```{r}
+d <- data.table()
+
+for (n in c(200, 300, 400, 500, 700, 1000)) {
+  p1 <- pcr(gs, y, sample_size = 100, sample_n = n)
+  res <- check.pcr(p1)
+  res <- t(c(res, sampleSize=100, sampleN=n))
+  d <- rbind(d, res)
+}
+
+d
+```
+
+```{r}
+check.pcr(p1)
+```
+
+```{r}
+plot(p1)
 ```
 
 ```{r}

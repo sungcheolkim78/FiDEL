@@ -24,7 +24,7 @@ Seismic$class <- as.factor(ifelse(Seismic$class == "0", "nonhaz", "haz"))
 inTraining0 <- createDataPartition(Seismic$class, p = .75, list = FALSE)
 training <- Seismic[ inTraining0,]
 testing  <- Seismic[-inTraining0,]
-testingY <- as_label(Seismic[-inTraining0, ncol(Seismic)])
+testingY <- to_label(Seismic[-inTraining0, ncol(Seismic)])
 ```
 
 ```{r}
@@ -137,3 +137,14 @@ saveRDS(testingY, 'seismic_m8_y.RData')
 ```{r}
 saveRDS(t1, 'seismic_all.RData')
 ```
+
+```{r}
+y <- testingY
+p1 <- pcr(t1$predictions[,10], y, sample_size = 100, sample_n = 500)
+check.pcr(p1)
+```
+
+```{r}
+plot(p1)
+```
+

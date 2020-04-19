@@ -1,75 +1,36 @@
 # pcr.R - probability of class y at given rank r
 #
 # Sungcheol Kim @ IBM
-# 2020/03/12
 #
-# version 1.0
+# version 1.0.0 - 2020/03/12
 
 library(ggpubr)
 library(pROC)
-library(doParallel)
+library(latex2exp)
 
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
-new_pcr <- function(scores, y, N=0, M=1) {
-  if (N == 0) {
-    N <- length(scores)
-    M <- 1
+new_pcr <- function(scores, y, sample_size=100, sample_n=300, method='bootstrap') {
+  if (sample_size == 0) {
+    sample_size <- length(scores)
+    sample_n <- 1
   }
 
-  # calculate metrics on rank
-  rho <- attr(y, 'rho')
-  N.data <- length(y)
-  ranked_y <- y[order(scores)]
-  tpr0 <- cumsum(as.numeric(ranked_y == attr(y, 'class1')))/(rho*N.data)
-  fpr0 <- cumsum(as.numeric(ranked_y == attr(y, 'class2')))/((1-rho)*N.data)
-  bac0 <- 0.5*(tpr0 + 1 - fpr0)
-  r_bac <- which.max(bac0)/N.data
-  auc0 <- auc.rank(scores, y)
+  # validate inputs
+  stopifnot(length(scores) == length(y))
+  if (is.null(attr(y, 'rho')) || attr(y, 'rho') == 0) { y <- to_label(y, class1=class1) }
 
   # calculation on pcr
-  x <- cal_pcr(scores, y, N=N, M=M)
-  N1 <- floor(N*rho)
-  N2 <- N - N1
-  pcrd <- x[[1]]
-  pcrd$tpr <- cumsum(pcrd$prob)/N1
-  pcrd$fpr <- cumsum(1-pcrd$prob)/N2
-  pcrd$prec <- cumsum(pcrd$prob)/(1:N)
-  pcrd$bac <- 0.5*(pcrd$tpr + 1 - pcrd$fpr)
+  if (method == 'bootstrap') {
+    prob <- pcr_sample(scores, y, sample_size=sample_size, sample_n=sample_n)
+  }
 
-  auc_pcr <- 2*mean(pcrd$bac) - 0.5
-  auprc_pcr <- (0.5*rho*(1 + sum(pcrd$prec[1:(N-2)] * pcrd$prec[2:(N-1)])/(N*rho*rho)))
-  b <- get_fermi(auc_pcr, rho=attr(y, 'rho'), N=N)
-  b0 <- get_fermi(auc0, rho=attr(y, 'rho'))
-
-  # calculate metrics on score and label data
-  roc_all <- auc.rank(scores, y)
-  #ci0 <- ci(roc_all)
-  #sigma0 <- (ci0[[2]]-ci0[[1]])/(2*1.96)
+  pcrd <- build_curve_pcr(prob)
+  info <- attr(pcrd, 'info')
+  info <- c(info, sample_size=sample_size, sample_n=sample_n, N.data=length(y), method=method)
 
   structure(pcrd,
-            N=N,
-            M=M,
-            N.data=length(scores),
-            N1=N1,
-            N2=N2,
-            rho=attr(y, 'rho'),
-            class1=attr(y, 'class1'),
-            class2=attr(y, 'class2'),
-            auclist=x[[2]],
-            auc_sample=mean(x[[2]]),
-            sigma_sample=sd(x[[2]]),
-            auc0=auc0,
-            ci0=0,
-            sigma0=0,
-            auc_pcr=auc_pcr,
-            auprc_pcr=auprc_pcr,
-            beta=b[[1]],
-            mu=b[[2]],
-            rs=b[[3]],
-            r_th=r_bac,
-            rs0=b0[[3]],
-            bac0=bac0,
+            info=info,
             class=c("pcr", "data.table", "data.frame"))
 }
 
@@ -79,108 +40,153 @@ validate_pcr <- function(x) {
   x
 }
 
-pcr <- function(scores, y, N=0, M=1) {
-  validate_pcr(new_pcr(scores, y, N=N, M=M))
+pcr <- function(scores, y, sample_size=100, sample_n=300) {
+  validate_pcr(new_pcr(scores, y, sample_size=sample_size, sample_n=sample_n))
 }
 
-cal_pcr <- function(scores, y, N=0, M=100) {
-  stopifnot(N <= length(scores))
+# calculate pcr using bootstrap method
+pcr_sample <- function(scores, y, sample_size=100, sample_n=300) {
+  if (length(y) - 10 < sample_size) {
+    sample_size <- length(y) - 10
+    message(paste0('... set sample size as ', sample_size, ' (original size: ', length(y), ')'))
+  }
 
-  # without sampling
-  if (N == 0) {
-    prob <- as.double(y == attr(y, 'class1'))
-    rank <- frankv(scores, order=-1L)        # add rank
-    auclist <- c(auc.rank(scores, y))
+  N1_new <- floor(attr(y, 'rho')*sample_size)
+  N2_new <- sample_size - N1_new
+  totalidx <- seq_along(scores)
+  c1_idx <- totalidx[y == attr(y, 'class1')]
+  c2_idx <- totalidx[y == attr(y, 'class2')]
 
-    return (list(data.table(rank=rank, prob=prob), auclist))
-  } else {
-    # with sampling
-    prob <- vector(length = N)
-    auclist <- vector(length = M)
-    N1 <- floor(attr(y, 'rho')*N)
-    N2 <- N - N1
-    totalidx <- 1:length(scores)
-    c1_idx <- totalidx[y == attr(y, 'class1')]
-    c2_idx <- totalidx[y != attr(y, 'class1')]
+  get_prob <- function(seed) {
+    set.seed(seed)
+    idx <- c(sample(c1_idx, N1_new), sample(c2_idx, N2_new))
+    tmp <- as.double(y[idx] == attr(y, 'class1'))
+    return (tmp[order(scores[idx], decreasing = FALSE)])
+  }
 
-    for (i in 1:M) {
-      # create index from class1 and class2
-      idx <- c(sample(c1_idx, N1), sample(c2_idx, N2))
-      auclist[i] <- auc.rank(scores[idx], y[idx])
+  seed_list <- sample(100*sample_n, sample_n)
+  mat <- sapply(seed_list, get_prob)
+  #print(mat)
 
-      temp <- as.double(y[idx] == attr(y, 'class1'))
-      prob <- prob + temp[order(scores[idx], decreasing = FALSE)]
-    }
-    prob <- prob/M
-    #sds <- sqrt(rowSums((res - rowMeans(res))^2)/(dim(res)[2] - 1))
+  prob <- rowMeans(mat)
 
-    return (list(data.table(rank=seq(1,N,by=1.), prob=prob), auclist))
+  return (prob)
+}
+
+pcr_nfold <- function(scores, y, nfold=10) {
+  c1_idx <- totalidx[y == attr(y, 'class1')]
+  c2_idx <- totalidx[y == attr(y, 'class2')]
+  if (min(c(length(c1_idx), length(c2_idx))) < nfold) {
+    message(paste0('min sample size ', length(c1_idx), ' < nfold ', nfold))
   }
 }
 
-get_pcr <- function(pcrd) {
-  return (list(N0 = attr(pcrd, 'N.data'),
-                N = attr(pcrd, 'N'),
-                M = attr(pcrd, 'M'),
-                rho = attr(pcrd, 'rho'),
-                auc0 = attr(pcrd, 'auc0'),
-                auc_sample = attr(pcrd, 'auc_sample'),
-                auc_pcr = attr(pcrd, 'auc_pcr'),
-                beta = attr(pcrd, 'beta'),
-                mu = attr(pcrd, 'mu'),
-                sigma0 = attr(pcrd, 'sigma0'),
-                rs = attr(pcrd, 'rs'),
-                rs0 = attr(pcrd, 'rs0'),
-                r_th = attr(pcrd, 'r_th')))
+# characteristics based on the rank threshold
+build_curve_pcr <- function(prob) {
+  N <- length(prob)
+  N1 <- sum(prob)
+  N2 <- N - N1
+  rho <- N1/N
+
+  tic(sprintf('... build_curve calculation (N=%i)', N))
+
+  # calculate curve data
+  df <- data.table(rank=seq_along(prob), prob=prob)
+
+  df$tpr <- cumsum(prob)/N1
+  df$fpr <- cumsum(1-prob)/N2
+  df$bac <- 0.5*(df$tpr + 1 - df$fpr)
+  df$prec <- cumsum(prob)/df$rank
+
+  # calculate metric
+  auc0 <- auc.pcr(prob)
+  # smooth curves and calculate optimal threshold
+  l1 <- loess(bac ~ rank, df, span=0.1)
+  # calculate beta and mu based on AUC and prevalence
+  b <- get_fermi(auc0, rho)
+  ci_info <- var_auc_fermi(auc0, rho, N=N, method="integral")
+
+  # register metrics
+  info <- list(auc_rank=auc0,
+               auc_bac=2*mean(df$bac) - 0.5,
+               auprc=0.5*N1/N*(1 + N/(N1*N1)*sum(df$prec[1:(N-2)]*df$prec[2:(N-1)])),
+               th_bac=which.max(l1$fitted)/N,
+               rstar=b[[3]],
+               beta=b[[1]],
+               mu=b[[2]],
+               rho=rho,
+               var_auc=ci_info[['var_auc']],
+               Pxy=ci_info[['Pxy']],
+               Pxxy=ci_info[['Pxxy']],
+               Pxyy=ci_info[['Pxyy']],
+               ci1=auc0 - 1.96*sqrt(ci_info[['var_auc']]),
+               ci2=auc0 + 1.96*sqrt(ci_info[['var_auc']])
+  )
+  rm(l1, b, ci_info)
+
+  attr(df, 'info') <- info
+  toc()
+
+  return(df)
 }
 
-print.pcr <- function(pcrd) {
-  return(get_pcr(pcrd))
+check.pcr <- function(pcrd) {
+  info <- attr(pcrd, 'info')
+  fy <- fermi.b(pcrd$rank, info$beta, info$mu, normalized = TRUE)
+  err <- pcrd$prob - fy
+
+  co <- cor.test(pcrd$prob, fy)
+  MAE <- mean(abs(err))
+  RMSE <- sqrt(mean(err*err))
+  SSEV <- sum(err*err)/var(err)
+
+  return (c(cor=co$estimate, p.value=co$p.value, MAE=MAE, RMSE=RMSE, SSEV=SSEV))
 }
 
-plot.pcr <- function(pcr_data) {
-  df <- data.table(x=pcr_data$rank, y=pcr_data$prob, sd=pcr_data$sd/sqrt(attr(pcr_data, 'M')))
-  auclist <- attr(pcr_data, 'auclist')
+plot.pcr <- function(pcrd) {
+  df <- data.table(x=pcrd$rank, y=pcrd$prob)
+  info <- attr(pcrd, 'info')
 
-  l <- nls(y ~ fermi.b(x, b, m), data=df, start = list(b=attr(pcr_data, 'beta'), m=attr(pcr_data, 'mu')))
-  l1 <- coef(l)
-  fy <- fermi.b(df$x, attr(pcr_data, 'beta'), attr(pcr_data, 'mu'))
+  fy <- fermi.b(pcrd$rank, info$beta/info$sample_size, info$mu*info$sample_size)
+  co <- cor.test(pcrd$prob, fy)
+  print(co)
 
-  msg1 <- sprintf("Mean AUC: %.4f\nStd. of AUC: %.4f", mean(auclist), sd(auclist))
-  msg2 <- sprintf("beta: %.4f\nmu: %.4f", attr(pcr_data, 'beta'), attr(pcr_data, 'mu'))
-  msg3 <- sprintf("N0: %d\nN: %d\nM: %d", attr(pcr_data, 'N.data'), attr(pcr_data, 'N'), attr(pcr_data, 'M'))
+  msg2 <- sprintf("Beta: %.3g\nMu: %.3g", info$beta/info$sample_size, info$mu*info$sample_size)
+  msg3 <- sprintf("N.data: %d\nsampling #: %d\nAUC: %.4f\nprevalence: %.3f",
+                  info$N.data, info$sample_n, info$auc_rank, info$rho)
+  idx <- floor(info$sample_size/2)
 
   g <- ggplot(data=df) + geom_point(aes(x=x, y=y)) +
-    geom_line(aes(x=x, y=predict(l)), linetype="dashed", color="red") +
     geom_line(aes(x=x, y=fy), linetype="dashed", color="green") +
-    geom_errorbar(aes(x=x, ymin=y-sd, ymax=y+sd), alpha=0.5, position=position_dodge(0.05)) +
+    #geom_errorbar(aes(x=x, ymin=y-sd, ymax=y+sd), alpha=0.5, position=position_dodge(0.05)) +
     theme_classic() + ylab('P(1|r)') + xlab('Rank') +
-    annotate("text", label=msg1, x=0, y=0, hjust=0, vjust=0) +
-    annotate("text", label=msg2, x=mean(pcr_data$rank), y=0.4, vjust=1, hjust=1) +
-    annotate("text", label=msg3, x=max(pcr_data$rank), y=1.0, hjust=1, vjust=1)
+    #annotate("text", label=msg1, x=0, y=0, hjust=0, vjust=0) +
+    annotate("text", label=msg2, x=idx, y=fy[idx], vjust=0, hjust=0) +
+    annotate("text", label=msg3, x=max(pcrd$rank), y=1.0, hjust=1, vjust=1) +
+    ggtitle(paste0('Pearson Correlation r=', round(co$estimate, digits = 3),
+                   ' p=', format(co$p.value, nsmall=3), ' between PCR and FD\n',
+                   'method: ', info$method))
 
-  ggsave(paste0("N", attr(pcr_data, 'N'), "M", attr(pcr_data, 'M'), ".pdf"), width=7, height=4)
+  ggsave(paste0("N", info$sample_size, "M", info$sample_n, ".pdf"), width=7, height=4)
   return (g)
 }
 
-auc.pcr <- function(pcr_data) {
+auc.pcr <- function(prob) {
   # rank and prob
-  res <- abs(sum(pcr_data$rank * pcr_data$prob)/attr(pcr_data, "N1") -
-               sum(pcr_data$rank * (1 - pcr_data$prob))/attr(pcr_data, "N2"))/attr(pcr_data, "N") + 0.5
-  return (res)
+  rank <- seq_along(prob)
+  N <- length(prob)
+  N1 <- sum(prob)
+  N2 <- N - N1
+
+  return (abs(sum(rank * prob)/N1 - sum(rank * (1 - prob))/N2)/N + 0.5)
 }
 
-auprc.pcr <- function(scores) {
-  check <- c("prob", "prec") %in% names(scores)
-  if(!all(check)) {
-    scores <- score.to.classprob(scores)
-    scores <- cal.fromRank(scores)
-  }
+auprc.pcr <- function(prob) {
+  N <- length(prob)
+  rho <- sum(prob)/N
 
-  N <- length(scores$prob)
-  rho <- sum(scores$prob)/N
-  res <- sum(scores$prec[1:(N-2)] * scores$prec[2:(N-1)])/N
-  return (0.5*rho*(1 + res/(rho*rho)))
+  prec <- cumsum(prob)/seq_along(prob)
+  return (0.5*rho*(1 + sum(prec[1:(N-2)] * prec[2:(N-1)])/(N*rho*rho)))
 }
 
 sigma.rank <- function(rankprob, debug.flag = FALSE) {

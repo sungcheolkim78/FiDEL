@@ -16,11 +16,7 @@ library(FDclassifieR)
 ## Prepare Data
 
 ```{r}
-<<<<<<< HEAD
-#set.seed(1024)
-=======
 set.seed(1024)
->>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449
 
 #yeast <- read_table(url("http://archive.ics.uci.edu/ml/machine-learning-databases/yeast/yeast.data"))
 tmp <- read.table('data/yeast.csv')
@@ -38,7 +34,7 @@ Yeast$Site <- factor(Yeast$Site, c('CYT', 'NUC'))
 inTraining0 <- createDataPartition(Yeast$Site, p = .75, list = FALSE)
 training <- Yeast[ inTraining0,]
 testing  <- Yeast[-inTraining0,]
-testingY <- as_label(Yeast[-inTraining0, ncol(Yeast)])
+testingY <- to_label(Yeast[-inTraining0, ncol(Yeast)])
 ```
 
 ```{r}
@@ -132,11 +128,9 @@ fde1 <- fde(t1$predictions, testingY)
 ```
 
 ```{r}
-<<<<<<< HEAD
 plot_cor(fde1, class_flag='positive')
-=======
+
 plot_cor(fde1, class_flag='negative')
->>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449
 ```
 
 ```{r}
@@ -155,11 +149,17 @@ saveRDS(testingY, 'yeast_m8_y.RData')
 ```{r}
 saveRDS(t1, 'yeast_all.RData')
 ```
-<<<<<<< HEAD
 
 ```{r}
 plot_ensemble(fde1, method='invauc', alpha=0.8)
 ```
 
-=======
->>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449
+```{r}
+y <- to_label(fde1@actual_label, class1 = 'NUC')
+p1 <- pcr(fde1@predictions[,10], y, sample_size = 100, sample_n = 1000)
+```
+
+```{r}
+plot(p1)
+```
+
