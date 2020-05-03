@@ -324,6 +324,80 @@ setMethod("plot_single", "FDensemble", function(.Object, target, c, n=100, m=100
   }
 })
 
+setGeneric("plot_performance", function(.Object, ...) {standardGeneric("plot_performance")})
+
+setMethod("plot_performance", "FDensemble", function(.Object, nmethod_list=5:7, nsample=20, trendline=FALSE) {
+  df <- cal_partial_performance(.Object, nmethod_list=nmethod_list, nsample=nsample)
+  df$nmethod <- as.factor(df$nmethod)
+
+  x_all <- max(.Object@actual_performance)
+  y_all <- .Object@ensemble_auc
+  y_final <- mean(y)
+  min_y <- min(c(x, y, x_all, y_all))
+  max_y <- max(c(x, y, x_all, y_all))
+
+  g <- ggplot(df, aes(x=Best_AUC, y=FD_AUC, shape=nmethod, color=nmethod)) + theme_classic() +
+    geom_point() +
+    xlab('Best AUC from random sampled methods') + xlim(c(min_y, max_y)) +
+    ylab('FiDEL AUC') + ylim(c(min_y, max_y)) +
+    geom_abline(slope=1, linetype='dashed', alpha=0.7) +
+    annotate(geom="curve", x=x_all, y=y_all, xend=x_all, yend=x_all, curvature=-.3, arrow = arrow(length = unit(2, "mm"))) +
+    annotate(geom="text", x=max_y, y=x_all, label='All', hjust=0)
+  if (trendline)
+    g <- g + geom_smooth(method=loess)
+
+  ggsave('FiDEL_perf.pdf', width=6, height=4)
+  print(g)
+})
+
+plot_performance_nmethods <- function(.Object, nmethod_list=5:7, nsample=20, conf.interval=.95) {
+  df <- cal_partial_performance(.Object, nmethod_list=nmethod_list, nsample=nsample)
+  df <- melt(df, id.vars = 'nmethod', variable.name='method', value.name='AUC')
+
+  tmp <- df %>% group_by(nmethod, method) %>%
+    mutate(Performance=mean(AUC)) %>%
+    mutate(sd=sd(AUC)) %>%
+    mutate(N=length(AUC))
+
+  tmp$se <- tmp$sd/sqrt(tmp$N)
+  tmp$ci <- tmp$se * qt(conf.interval/2 + .5, tmp$N-1)
+  tmp$shape <- ifelse(tmp$method == 'FiDEL', 21, 23)
+
+  g <- ggplot(tmp, aes(x=nmethod, y=Performance, color=method)) +
+    geom_line(size=2) +
+    geom_errorbar(width=.1, aes(ymin=Performance-ci, ymax=Performance+ci)) +
+    geom_point(shape=tmp$shape, size=2, fill='white') +
+    xlab('Number of methods') +
+    ylab('Ensemble performance') +
+    theme_classic()
+
+  ggsave('FiDEL_perf_nmethod.pdf', width=6, height=4)
+  print(g)
+}
+
+cal_partial_performance <- function(.Object, nmethod_list=5:7, nsample=20) {
+  x <- c()
+  y <- c()
+  n <- c()
+
+  for (j in nmethod_list) {
+    for (i in 1:nsample) {
+      modellist <- sample(1:.Object@nmethods, j)
+      FDAuc <- auc.rank(-rowSums(.Object@logit_matrix[,modellist]), .Object@actual_label)
+      BestAuc <- max(.Object@actual_performance[modellist])
+
+      x <- c(x, BestAuc)
+      y <- c(y, FDAuc)
+      n <- c(n, j)
+    }
+  }
+
+  df <- data.table(Best_Indv=x, FiDEL=y, nmethod=n)
+  #df$nmethod <- as.factor(df$nmethod)
+
+  return(df)
+}
+
 cal_least_cor_list <- function(.Object) {
   # reorder by AUC
   colorder <- order(.Object@actual_performance, decreasing = TRUE)

@@ -27,7 +27,7 @@ Iono$V1 <- as.numeric(as.character(Iono$V1))
 inTraining0 <- createDataPartition(Iono$Class, p = .75, list = FALSE)
 training <- Iono[ inTraining0,]
 testing  <- Iono[-inTraining0,]
-testingY <- as_label(Iono[-inTraining0, ncol(Iono)])
+testingY <- to_label(Iono[-inTraining0, ncol(Iono)])
 ```
 
 ```{r}
@@ -55,8 +55,13 @@ t1 <- predict(t1, newdata=testing)
 ```{r}
 #auclist <- apply(t1$predictions, 2, auc.rank, testingY)
 
-fde1 <- fde(t1$predictions, testingY)
-#fde1 <- predict_performance(fde1, auclist, attr(testingY, 'rho'))
+fde1 <- fde(t1$predictions)
+fde1 <- calculate_performance(fde1, testingY, alpha=7)
+```
+
+```{r}
+#plot_performance(fde1, nsample=100, trendline=F)
+plot_performance_nmethods(fde1, nmethod_list = 3:10, nsample=100)
 ```
 
 ```{r}

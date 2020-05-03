@@ -8,6 +8,8 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(FDclassifieR)
+library(latex2exp)
+library(ggpubr)
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
@@ -350,10 +352,10 @@ g
 ```{r}
 tic()
 rholist <- c(0.1, 0.3, 0.5, 0.7, 0.9)
-auclist <- create.auclist(0.6, 0.99, 15)
+auclist <- create.auclist(0.6, 0.98, 10)
 
 res <- data.table()
-N0 <- 100000
+N0 <- 50000
 
 for(r in rholist) {
   for (a in auclist) {
@@ -363,10 +365,12 @@ for(r in rholist) {
     ds <- build_curve(gs, y)
     ds_roc <- roc(y, gs)
     ds_ci <- ci(ds_roc)
+    info <- attr(ds, 'info')
+    #print(info)
     
-    tmp <- data.table(N=length(y), rho=attr(y,'rho'), auc=a, auc_bac=attr(ds,'auc_bac'),
-             auprc=attr(ds,'auprc'), th_bac=attr(ds,'th_bac'), rstar=attr(ds,'rstar'), 
-             pxxy=attr(ds,'Pxxy'), pxyy=attr(ds, 'Pxyy'), sig_auc=sqrt(attr(ds,'var_auc')), 
+    tmp <- data.table(N=length(y), rho=attr(y,'rho'), auc=a, auc_bac=info$auc_bac,
+             auprc=info$auprc, th_bac=info$th_bac, rstar=info$rstar, 
+             pxxy=info$Pxxy, pxyy=info$Pxyy, sig_auc=sqrt(info$var_auc), 
              sig_auc_delong=(ds_ci[2]-ds_ci[1])/3.92)
     res <- rbind(res, tmp)
     rm(ds)
@@ -389,6 +393,16 @@ g1 <- ggplot(data=tmp) + geom_line(aes(x=rstar, y=th_bac, group=p, color=p)) +
         legend.background = element_rect(color=cbPalette[1], linetype='solid'))
 g1
 ```
+
+```{r}
+g1 <- ggplot(data=tmp) +
+  geom_point(aes(y=rstar, x=th_bac)) + 
+  geom_abline(slope=1, linetype='dashed') + theme_classic() +
+  ylab(TeX('r_{FD}/N')) + xlab(TeX('r_{bac}/N'))
+
+g1
+```
+
 
 ```{r}
 g2 <- ggplot(data=tmp) + 
@@ -447,6 +461,19 @@ g1
 ```
 
 ```{r}
+tmp <- res
+tmp$p <- as.factor(tmp$rho)
+tmp$sig_auc_delong <- tmp$sig_auc_delong*1.96
+gb2 <- ggplot(data=tmp) + 
+  geom_point(aes(x=sig_auc_delong, y=sig_auc)) + 
+  geom_abline(slope=1, linetype='dashed') + theme_classic() + 
+  xlab(TeX('$\\sigma_{AUC}$ (Delong)')) + ylab(TeX('$\\sigma_{AUC}$ (FD)')) + 
+  theme(legend.position='none')
+#xlim(c(0,0.0035)) + ylim(c(0,0.0035))
+gb2
+```
+
+```{r}
 tmp$sig_nor <- tmp$sig_auc/tmp$sig_auc_delong
 g2 <- ggplot(data=tmp) + 
   geom_line(aes(x=auc, y=sig_nor, group=p, color=p)) +
@@ -489,4 +516,11 @@ ggsave("ci_total.pdf", width=7, height=6.5)
 print(g)
 ```
 
+
+```{r}
+library(ggpubr)
+g <- ggarrange(g1, gb2, labels=c('A', 'B'), ncol=2, nrow=1)
+ggsave("Figure3v4.pdf", width=7, height=3.5)
+print(g)
+```
 

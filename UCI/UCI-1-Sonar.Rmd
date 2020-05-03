@@ -18,7 +18,7 @@ data(Sonar)
 inTraining0 <- createDataPartition(Sonar$Class, p = .75, list = FALSE)
 training <- Sonar[ inTraining0,]
 testing  <- Sonar[-inTraining0,]
-testingY <- as_label(Sonar[-inTraining0, ncol(Sonar)])
+testingY <- to_label(Sonar[-inTraining0, ncol(Sonar)])
 ```
 
 ```{r}
@@ -49,22 +49,26 @@ t1 <- predict(t1, newdata=testing)
 ```
 
 ```{r}
-auclist <- apply(t1$predictions, 2, auc.rank, testingY)
+#auclist <- apply(t1$predictions, 2, auc.rank, testingY)
 
 fde1 <- fde(t1$predictions)
-fde1 <- predict_performance(fde1, auclist, attr(testingY, 'rho'))
+fde1 <- calculate_performance(fde1, testingY, alpha=7)
 ```
 
 ```{r}
-<<<<<<< HEAD
 plot_cor(fde1, class_flag = 'positive')
-=======
-plot_cor(fde1, class_flag = 'negative')
->>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449
 ```
 
 ```{r}
 fde1 <- fde(t1$predictions, testingY)
+```
+
+```{r}
+plot_performance(fde1, nsample=100, trendline=T)
+```
+
+```{r}
+plot_performance_nmethods(fde1, nmethod_list = 3:10, nsample=100)
 ```
 
 ```{r}

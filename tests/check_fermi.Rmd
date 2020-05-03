@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(FDclassifieR)
 library(ggplot2)
 library(latex2exp)
+library(data.table)
 ```
 
 ## lambda function
@@ -78,5 +79,50 @@ library(ggpubr)
 g <- ggarrange(g2, g1, g5, g4, labels=c("A", "B", "C", "D"), ncol=2  , nrow=2)
 ggsave("betamu_relation.pdf", width=8, height=6, dpi=300)
 g
+```
+
+```{r}
+library(plotly)
+```
+
+```{r}
+rhoN <- length(unique(res$rho))
+AUCN <- length(unique(res$AUC))
+
+rho <- unique(res$rho)
+AUC <- unique(res$AUC)
+
+beta <- matrix(res$beta, nrow=rhoN, ncol=AUCN)
+mu <- matrix(res$mu, nrow=rhoN, ncol=AUCN)
+```
+
+```{r}
+fig <- plot_ly(z = ~mu, x = AUC, y = rho, type='surface') %>% add_surface(
+  contours = list(
+    z = list(
+      show=TRUE,
+      usecolormap=TRUE,
+      highlightcolor="#ff0000",
+      project=list(z=TRUE)
+      )
+    )
+  )
+fig <- fig %>% layout(
+    scene = list(
+      camera=list(
+        eye = list(x=1.87, y=0.88, z=-0.64)
+        )
+      )
+  )
+
+fig
+```
+
+```{r}
+pdf('3dplot.pdf', width=12, height=6)
+par(mfrow=c(1,2))
+persp(rho, AUC, beta, theta = 30, phi = 15, shade=.3, ticktype='detailed', expand=.8, scale=T)
+persp(rho, AUC, mu, theta = 30, phi = 15, shade=.3, ticktype='detailed', expand=.8, scale=T)
+dev.off()
 ```
 

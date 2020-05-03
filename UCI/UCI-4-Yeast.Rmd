@@ -123,8 +123,14 @@ t1 <- t1 %>%
 t1 <- predict(t1, newdata=testing)
 #auclist <- apply(t1$predictions, 2, auc.rank, testingY)
 
-fde1 <- fde(t1$predictions, testingY)
+fde1 <- fde(t1$predictions)
+fde1 <- calculate_performance(fde1, testingY, alpha=7)
 #fde1 <- predict_performance(fde1, auclist, attr(testingY, 'rho'))
+```
+
+```{r}
+#plot_performance(fde1, nsample=100, trendline=F)
+plot_performance_nmethods(fde1, nmethod_list = 3:15, nsample=100)
 ```
 
 ```{r}

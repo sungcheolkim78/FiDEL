@@ -13,16 +13,20 @@ library(FDclassifieR)
 # FD Ensemble method
 
 ```{r}
-<<<<<<< HEAD
-auclist <- create.auclist(0.55, 0.65, 20)
-=======
-auclist <- create.auclist(0.85, 0.95, 10)
->>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449
-data_rank <- create_predictions(n=1000, auclist=auclist, p=0.1)
+auclist <- create.auclist(0.51, 0.95, 50)
+data_rank <- create_predictions(n=1000, auclist=auclist, p=0.5)
 ```
 
 ```{r}
-fde1 <- fde(data_rank$predictions, data_rank$actual_labels)
+fde1 <- fde(data_rank$predictions)
+fde1 <- calculate_performance(fde1, data_rank$actual_labels, alpha=7)
+```
+
+## plot performance
+
+```{r}
+#plot_performance(fde1, nsample=100, trendline=F)
+plot_performance_nmethods(fde1, nmethod_list = 3:10, nsample=100)
 ```
 
 ## check correlation
@@ -32,11 +36,7 @@ fde1 <- fde(data_rank$predictions, data_rank$actual_labels)
 ```
 
 ```{r}
-<<<<<<< HEAD
 plot_cor(fde1, class_flag='positive')
-=======
-plot_cor(fde1, class_flag='negative')
->>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449
 ```
 
 # Aggregate predictions
