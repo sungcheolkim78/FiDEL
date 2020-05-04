@@ -20,7 +20,7 @@ library(tictoc)
 #' @examples
 #' t <- mtrainer(c('C5.0', 'ctree'))
 #' @export
-new_mtrainer <- function(x = list(), dataInfo = 'temp', fitControl = NULL) {
+new_mtrainer <- function(x = list(), dataInfo = 'temp', fitControl = NULL, update = TRUE) {
   stopifnot(is.character(x))
 
   # prepare fitControl
@@ -38,7 +38,7 @@ new_mtrainer <- function(x = list(), dataInfo = 'temp', fitControl = NULL) {
   }
 
   fname <- paste0(dataInfo, '.RData')
-  if (file.exists(fname)) {
+  if (file.exists(fname) & !update) {
     fitlist <- readRDS(fname)
     fitnames <- names(fitlist)
     cat('... read ', length(fitlist), ' models: ', fitnames, '\n')
@@ -46,6 +46,7 @@ new_mtrainer <- function(x = list(), dataInfo = 'temp', fitControl = NULL) {
     cat('... add ', sum(!check), ' models: ', x[!check], '\n')
     x <- c(x[!check], fitnames)
   } else {
+    cat('... new ', length(x), ' models: ', x, '\n')
     fitlist <- list()
   }
 
@@ -75,8 +76,8 @@ validate_mtrainer <- function(x) {
 }
 
 # helper
-mtrainer <- function(x = list(), dataInfo='temp', fitControl = NULL) {
-  validate_mtrainer(new_mtrainer(x, dataInfo, fitControl))
+mtrainer <- function(x = list(), dataInfo='temp', fitControl=NULL, update=TRUE) {
+  validate_mtrainer(new_mtrainer(x, dataInfo, fitControl, update))
 }
 
 update.mtrainer <- function(mtrainer, newlist) {
@@ -90,61 +91,81 @@ addmodel.mtrainer <- function(mtrainer, newmodelname) {
   validate_mtrainer(mtrainer)
 }
 
-train.mtrainer <- function(mtrainer, formula, data, update=FALSE, save=TRUE, n_cores=-1) {
-  if (n_cores == -1) n_cores <- detectCores() - 1
+# worker module for parallel process
+caret_train <- function(method, mtrainer, formula, tr_data, n_cores) {
+  message(paste0('Training algorithm : ', method, ' with : ', n_cores, ' cores'))
+  #message(head(tr_data))
+  flush.console()
 
-  # worker module for parallel process
-  caret_train <- function(method) {
-    message(paste0('Training algorithm : ', method, ' with : ', n_cores, ' cores'))
-    flush.console()
-
-    if (method %in% names(mtrainer$fitlist) && !update) {
-      message(paste0('... using cached result: ', method))
-      return (mtrainer$fitlist[[method]])
-    } else {
-      #set.seed(1024)
-      cl <- makePSOCKcluster(n_cores)
-      registerDoParallel(cl)
-      if (method %in% c('gbm', 'nnet')) {
-        fit <- caret::train(formula, data=data, method=method, trControl=mtrainer$control,
-                     metric="ROC", tuneLength=4, preProc = c("center", "scale"), verbose=FALSE)
-      }
-      else {
-        fit <- caret::train(formula, data=data, method=method, trControl=mtrainer$control,
-                     metric="ROC", tuneLength=4, preProc = c("center", "scale"))
-      }
-      stopCluster(cl)
-      return (fit)
-    }
+  #set.seed(1024)
+  cl <- makePSOCKcluster(n_cores)
+  registerDoParallel(cl)
+  if (method %in% c('gbm', 'nnet')) {
+    fit <- caret::train(formula, data=tr_data, method=method, trControl=mtrainer$control,
+                 metric="ROC", tuneLength=4, preProc = c("center", "scale"), verbose=FALSE)
   }
+  else {
+    fit <- caret::train(formula, data=tr_data, method=method, trControl=mtrainer$control,
+                 metric="ROC", tuneLength=4, preProc = c("center", "scale"))
+  }
+  stopCluster(cl)
+  return (fit)
+}
+
+
+train.mtrainer <- function(mtrainer, formula, data_list, update=FALSE, save=TRUE, n_cores=-1) {
+  if (n_cores == -1) n_cores <- detectCores() - 1
+  fname <- paste0(mtrainer$dataInfo, '.RData')
+  if (file.exists(fname) & !update) { mtrainer$fitlist <- readRDS(fname) }
 
   tic(cat('... train model with ', mtrainer$nmethods, ' algorithms\n'))
 
-  mtrainer$fitlist <- lapply(mtrainer$model_list, caret_train)
+  # train multiple data with different methods
+  for (i in 1:mtrainer$nmethods) {
+    # check fit data
+    if (mtrainer$model_list[i] %in% names(mtrainer$fitlist) && !update) {
+      message(paste0('... using cached result: ', mtrainer$model_list[i]))
+    } else {
+      # single training data case
+      if (length(data_list) == 1) 
+        fit <- caret_train(mtrainer$model_list[i], mtrainer, formula, data_list[[1]], n_cores)
+      else
+        fit <- caret_train(mtrainer$model_list[i], mtrainer, formula, data_list[[i]], n_cores)
 
-  names(mtrainer$fitlist) <- mtrainer$model_list
+      fitlist <- list(fit)
+      names(fitlist) <- c(mtrainer$model_list[i])
+      mtrainer$fitlist <- append(mtrainer$fitlist, fitlist)
+    }
+    saveRDS(mtrainer$fitlist, file = fname)
+  }
+
   mtrainer$nmethods <- length(mtrainer$fitlist)
-  saveRDS(mtrainer$fitlist, file = paste0(mtrainer$dataInfo, '.RData'))
   toc()
 
   mtrainer
 }
 
+
 predict.mtrainer <- function(mtrainer, newdata=NULL, class1=NULL) {
   message(paste0('... predict using ', mtrainer$nmethods, ' base classifiers'))
 
   if (is.null(class1)) {
-    class1 <- mtrainer$fitlist[[1]]$finalModel$lev[1]
+    class1 <- mtrainer$fitlist[[1]]$finalModel$obsLevels[1]
   }
   # check test data set
-  if(!is.null(newdata)) mtrainer$test_data <- newdata
-  stopifnot(length(mtrainer$test_data) > 0)
+  if(!is.null(newdata)) {
+    mtrainer$test_data <- newdata
+  }
+
+  stopifnot(!is.null(mtrainer$test_data))
 
   # build predictions
   mtrainer$predictions <- matrix(nrow=nrow(mtrainer$test_data), ncol=mtrainer$nmethods)
+
   for (i in 1:mtrainer$nmethods) {
     tmp <- predict(mtrainer$fitlist[i], newdata=mtrainer$test_data, type='prob')
-    mtrainer$predictions[,i] <- tmp[[1]][, class1]
+    pred <- tmp[[1]][, class1]
+    mtrainer$predictions[, i] <- pred
   }
   colnames(mtrainer$predictions) <- mtrainer$model_list
 
