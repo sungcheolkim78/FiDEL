@@ -236,7 +236,7 @@ setMethod("plot_cor", "FDensemble", function(.Object, filename='cor.pdf', class_
 
 setGeneric("plot_ensemble", function(.Object, filename='ens.pdf', ...) {standardGeneric("plot_ensemble")})
 
-setMethod("plot_ensemble", "FDensemble", function(.Object, filename='ens.pdf', method='AUC', alpha=0.95, amax=0) {
+setMethod("plot_ensemble", "FDensemble", function(.Object, filename='ens.pdf', method='auc', alpha=0.95, amax=0) {
   # prepare data
   method_list = c('auc', 'asof', 'correlation', 'random', 'invauc')
   if (!(method %in% method_list)) {
@@ -333,10 +333,10 @@ setMethod("plot_performance", "FDensemble", function(.Object, nmethod_list=5:7, 
   x_all <- max(.Object@actual_performance)
   y_all <- .Object@ensemble_auc
   y_final <- mean(y)
-  min_y <- min(c(x, y, x_all, y_all))
-  max_y <- max(c(x, y, x_all, y_all))
+  min_y <- min(c(df$Best_Indv, df$FiDEL, x_all, y_all))
+  max_y <- max(c(df$Best_Indv, df$FiDEL, x_all, y_all))
 
-  g <- ggplot(df, aes(x=Best_AUC, y=FD_AUC, shape=nmethod, color=nmethod)) + theme_classic() +
+  g <- ggplot(df, aes(x=Best_Indv, y=FiDEL, shape=nmethod, color=nmethod)) + theme_classic() +
     geom_point() +
     xlab('Best AUC from random sampled methods') + xlim(c(min_y, max_y)) +
     ylab('FiDEL AUC') + ylim(c(min_y, max_y)) +
