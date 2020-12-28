@@ -1,10 +1,13 @@
 ---
-title: "R Notebook"
-output: html_notebook
+title: "confidence"
+author: "Sung-Cheol Kim"
+date: "1/22/2020"
+output: html_document
 ---
 
-```{r}
-library(FDclassifieR)
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(FiDEL)
 library(pROC)
 ```
 

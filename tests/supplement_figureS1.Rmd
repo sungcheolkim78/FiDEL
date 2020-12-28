@@ -1,16 +1,17 @@
 ---
-title: "check_functions"
-author: "Sungcheol Kim"
+title: "supplement figure S1"
+author: "Sung-Cheol Kim"
 date: "1/22/2020"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(FDclassifieR)
+library(FiDEL)
 library(ggplot2)
 library(latex2exp)
 library(data.table)
+library(ggpubr)
 ```
 
 ## lambda function
@@ -74,10 +75,8 @@ g5
 ```
 
 ```{r}
-library(ggpubr)
-
 g <- ggarrange(g2, g1, g5, g4, labels=c("A", "B", "C", "D"), ncol=2  , nrow=2)
-ggsave("betamu_relation.pdf", width=8, height=6, dpi=300)
+#ggsave("betamu_relation.pdf", width=8, height=6, dpi=300)
 g
 ```
 

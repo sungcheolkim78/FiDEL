@@ -6,6 +6,8 @@
 # version 1.0
 # version 1.1 - using normalized beta, mu
 
+library(tictoc)
+
 # Sampling Method
 countXY <- function(pcr_m, seed=1) {
   set.seed(seed)
