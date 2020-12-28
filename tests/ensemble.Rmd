@@ -89,13 +89,10 @@ plot_FDstatistics(fde1)
 ```
 
 ```{r}
-<<<<<<< HEAD
 plot_ensemble(fde1, method='invauc', alpha=0.85)
 ```
 
 ```{r}
-=======
->>>>>>> 065a1c3bf858d11a9bb8ea9613fd4d98ebcdf449
 plot_single(fde1, "score", c=9)
 ```
 
