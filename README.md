@@ -4,6 +4,11 @@ an ensemble learning algorithm that uses the calibrated nature of the output pro
 
 ## Installation
 
+required packages: kernlab, lme4, coin, modeltools, arm, party, caret, earth, RSNNS, C50, glmnet
+
+```
+```
+
 ## Examples
 
 ### Figure 2 in PNAS
