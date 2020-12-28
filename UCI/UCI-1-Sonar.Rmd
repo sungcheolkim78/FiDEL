@@ -9,7 +9,8 @@ output: html_notebook
 
 ```{r}
 library(mlbench)
-library(FDclassifieR)
+library(FiDEL)
+library(caret)
 ```
 
 ```{r}

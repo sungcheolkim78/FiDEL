@@ -6,8 +6,7 @@ an ensemble learning algorithm that uses the calibrated nature of the output pro
 
 required packages: kernlab, lme4, coin, modeltools, arm, party, caret, earth, RSNNS, C50, glmnet
 
-```
-```
+Use R-Studio and load `FiDEL.Rproj` and build/install
 
 ## Examples
 
