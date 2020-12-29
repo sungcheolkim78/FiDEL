@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(FiDEL)
 library(latex2exp)
 library(ggpubr)
+library(tictoc)
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 ```
 
@@ -33,7 +34,7 @@ g1
 ```
 
 ```{r}
-g2 <- plot.curves(ds, filename='curves.png')
+g2 <- plot.curves(ds, filename='results/curves.png')
 g2
 ```
 
@@ -43,7 +44,7 @@ g2
 # N is a maximum rank, M is the number of sampling
 library(tictoc)
 tic()
-pcr1 <- pcr(gs, y, N=1000, M=300)
+pcr1 <- pcr(gs, y, sample_size=1000, sample_n=300)
 #x <- cal_pcr(gs, y, N=4020, M=500)
 toc()
 #plot(pcr1)
@@ -180,38 +181,6 @@ var_auc_fermi(0.895, 283, 25374, iter=8000, debug.flag = T)
 ```{r}
 var_auc_fermi(0.942, 780, 67228, iter=10000, debug.flag = T)
 ```
-
-```{r}
-count <- 0
-for (i in 1:10) {
-  for (j in 1:10) {
-    for (k in 1:10) {
-      if (i < min(c(j, k))) {
-        print(sprintf("(%d, %d, %d)", i, j, k))
-        count <- count + 1
-      }
-    }
-  }
-}
-print(count)
-```
-
-```{r}
-count <- 0
-m2 <- matrix(100, 10, 10)
-
-for (i in 1:10) {
-  idx <- (m2 > 0)
-  idx[, 1:i] <- FALSE
-  idx[1:i, ] <- FALSE
-  diag(idx) <- FALSE
-  
-  print(idx)
-  count <- count + sum(idx)
-}
-print(count)
-```
-
 ## Sampling Check
 
 ```{r}
@@ -231,13 +200,13 @@ for (N0 in N0list) {
       for (rs in sampleratios) {
         Ns <- floor(N0*rs)
         for (M in Mlist) {
-          pcr1 <- pcr(gs, y, N=Ns, M=M)
+          pcr1 <- pcr(gs, y, sample_size=Ns, sample_n=M)
           res <- rbind(res, get_pcr(pcr1))
           rm(pcr1)
-          pcr1 <- pcr(gs, y, N=Ns, M=M)
+          pcr1 <- pcr(gs, y, sample_size=Ns, sample_n=M)
           res <- rbind(res, get_pcr(pcr1))
           rm(pcr1)
-          pcr1 <- pcr(gs, y, N=Ns, M=M)
+          pcr1 <- pcr(gs, y, sample_size=Ns, sample_n=M)
           res <- rbind(res, get_pcr(pcr1))
           rm(pcr1)
         }
@@ -415,7 +384,7 @@ g2
 
 ```{r}
 g <- ggarrange(g1, g4, g2, g3, labels=c("A", "C", "B", "D"), ncol=2, nrow=2)
-ggsave('threshold-2.pdf', width=7, height=6.5)
+#ggsave('threshold-2.pdf', width=7, height=6.5)
 print(g)
 ```
 
@@ -512,7 +481,7 @@ g4
 
 ```{r}
 g <- ggarrange(g1, g3, g2, g4, labels = c('A', 'C', 'B', 'D'), ncol = 2, nrow = 2)
-ggsave("ci_total.pdf", width=7, height=6.5)
+#ggsave("ci_total.pdf", width=7, height=6.5)
 print(g)
 ```
 
@@ -520,7 +489,7 @@ print(g)
 ```{r}
 library(ggpubr)
 g <- ggarrange(g1, gb2, labels=c('A', 'B'), ncol=2, nrow=1)
-ggsave("Figure3v4.pdf", width=7, height=3.5)
+#ggsave("Figure3v4.pdf", width=7, height=3.5)
 print(g)
 ```
 

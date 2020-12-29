@@ -1,15 +1,21 @@
 # pcr.R - probability of class y at given rank r
 #
-# Sungcheol Kim @ IBM
+# Sung-Cheol Kim @ IBM
 #
-# version 1.0.0 - 2020/03/12
+# version 1.1.0 - 2020/03/12
 
 library(ggpubr)
 library(pROC)
 library(latex2exp)
 
-cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
-
+#' create dataframe of the probability of class with rank
+#'
+#' @param scores list of score values
+#' @param y list of class values
+#' @param sample_size the number of items in one sampling selection
+#' @param sample_n the number of realization
+#' @param method the method for calculate probability
+#' @return the data class
 new_pcr <- function(scores, y, sample_size=100, sample_n=300, method='bootstrap') {
   if (sample_size == 0) {
     sample_size <- length(scores)
@@ -40,11 +46,24 @@ validate_pcr <- function(x) {
   x
 }
 
+#' create S4 object of the probability of class with rank (PCR)
+#'
+#' @param scores list of score values
+#' @param y list of class values
+#' @param sample_size the number of items in one sampling selection
+#' @param sample_n the number of realization
+#' @return S4 object
 pcr <- function(scores, y, sample_size=100, sample_n=300) {
   validate_pcr(new_pcr(scores, y, sample_size=sample_size, sample_n=sample_n))
 }
 
-# calculate pcr using bootstrap method
+#' calculate pcr using bootstrap method
+#'
+#' @param scores list of score values
+#' @param y list of class values
+#' @param sample_size the number of items in one sampling selection
+#' @param sample_n the number of realization
+#' @return the probability of class at given rank
 pcr_sample <- function(scores, y, sample_size=100, sample_n=300) {
   if (length(y) - 10 < sample_size) {
     sample_size <- length(y) - 10
@@ -66,13 +85,18 @@ pcr_sample <- function(scores, y, sample_size=100, sample_n=300) {
 
   seed_list <- sample(100*sample_n, sample_n)
   mat <- sapply(seed_list, get_prob)
-  #print(mat)
 
   prob <- rowMeans(mat)
 
   return (prob)
 }
 
+#' TODO
+#'
+#' @param scores list of score values
+#' @param y list of class values
+#' @param nfold the number of items in one sampling selection
+#' @return the probability of class at given rank
 pcr_nfold <- function(scores, y, nfold=10) {
   c1_idx <- totalidx[y == attr(y, 'class1')]
   c2_idx <- totalidx[y == attr(y, 'class2')]
@@ -81,7 +105,10 @@ pcr_nfold <- function(scores, y, nfold=10) {
   }
 }
 
-# characteristics based on the rank threshold
+#' create ROC curve based on the rank threshold
+#'
+#' @param prob list of the probability
+#' @return data frame with info
 build_curve_pcr <- function(prob) {
   N <- length(prob)
   N1 <- sum(prob)
@@ -130,47 +157,10 @@ build_curve_pcr <- function(prob) {
   return(df)
 }
 
-check.pcr <- function(pcrd) {
-  info <- attr(pcrd, 'info')
-  fy <- fermi.b(pcrd$rank, info$beta, info$mu, normalized = TRUE)
-  err <- pcrd$prob - fy
-
-  co <- cor.test(pcrd$prob, fy)
-  MAE <- mean(abs(err))
-  RMSE <- sqrt(mean(err*err))
-  SSEV <- sum(err*err)/var(err)
-
-  return (c(cor=co$estimate, p.value=co$p.value, MAE=MAE, RMSE=RMSE, SSEV=SSEV))
-}
-
-plot.pcr <- function(pcrd) {
-  df <- data.table(x=pcrd$rank, y=pcrd$prob)
-  info <- attr(pcrd, 'info')
-
-  fy <- fermi.b(pcrd$rank, info$beta/info$sample_size, info$mu*info$sample_size)
-  co <- cor.test(pcrd$prob, fy)
-  print(co)
-
-  msg2 <- sprintf("Beta: %.3g\nMu: %.3g", info$beta/info$sample_size, info$mu*info$sample_size)
-  msg3 <- sprintf("N.data: %d\nsampling #: %d\nAUC: %.4f\nprevalence: %.3f",
-                  info$N.data, info$sample_n, info$auc_rank, info$rho)
-  idx <- floor(info$sample_size/2)
-
-  g <- ggplot(data=df) + geom_point(aes(x=x, y=y)) +
-    geom_line(aes(x=x, y=fy), linetype="dashed", color="green") +
-    #geom_errorbar(aes(x=x, ymin=y-sd, ymax=y+sd), alpha=0.5, position=position_dodge(0.05)) +
-    theme_classic() + ylab('P(1|r)') + xlab('Rank') +
-    #annotate("text", label=msg1, x=0, y=0, hjust=0, vjust=0) +
-    annotate("text", label=msg2, x=idx, y=fy[idx], vjust=0, hjust=0) +
-    annotate("text", label=msg3, x=max(pcrd$rank), y=1.0, hjust=1, vjust=1) +
-    ggtitle(paste0('Pearson Correlation r=', round(co$estimate, digits = 3),
-                   ' p=', format(co$p.value, nsmall=3), ' between PCR and FD\n',
-                   'method: ', info$method))
-
-  ggsave(paste0("N", info$sample_size, "M", info$sample_n, ".pdf"), width=7, height=4)
-  return (g)
-}
-
+#' calculate AUC from probability of class at given rank
+#'
+#' @param prob list of the probability
+#' @return AUC
 auc.pcr <- function(prob) {
   # rank and prob
   rank <- seq_along(prob)
@@ -181,6 +171,10 @@ auc.pcr <- function(prob) {
   return (abs(sum(rank * prob)/N1 - sum(rank * (1 - prob))/N2)/N + 0.5)
 }
 
+#' calculate AUPRC from probability of class at given rank
+#'
+#' @param prob list of the probability
+#' @return AUPRC
 auprc.pcr <- function(prob) {
   N <- length(prob)
   rho <- sum(prob)/N
@@ -207,4 +201,53 @@ sigma.rank <- function(rankprob, debug.flag = FALSE) {
   }
 
   return (sqrt(r2mean - rmean*rmean))
+}
+
+#' compare pcr with fermi-dirac distribution
+#'
+#' @param pcrd pcr dataframe
+#' @return cor, p.value, MAE, RMS, SSEV
+check.pcr <- function(pcrd) {
+  info <- attr(pcrd, 'info')
+  fy <- fermi.b(pcrd$rank, info$beta, info$mu, normalized = TRUE)
+  err <- pcrd$prob - fy
+
+  co <- cor.test(pcrd$prob, fy)
+  MAE <- mean(abs(err))
+  RMSE <- sqrt(mean(err*err))
+  SSEV <- sum(err*err)/var(err)
+
+  return (c(cor=co$estimate, p.value=co$p.value, MAE=MAE, RMSE=RMSE, SSEV=SSEV))
+}
+
+#' plot pcr with fermi-dirac distribution
+#'
+#' @param pcrd pcr dataframe
+#' @return ggplot
+plot.pcr <- function(pcrd) {
+  df <- data.table(x=pcrd$rank, y=pcrd$prob)
+  info <- attr(pcrd, 'info')
+
+  fy <- fermi.b(pcrd$rank, info$beta/info$sample_size, info$mu*info$sample_size)
+  co <- cor.test(pcrd$prob, fy)
+  print(co)
+
+  msg2 <- sprintf("Beta: %.3g\nMu: %.3g", info$beta/info$sample_size, info$mu*info$sample_size)
+  msg3 <- sprintf("N.data: %d\nsampling #: %d\nAUC: %.4f\nprevalence: %.3f",
+                  info$N.data, info$sample_n, info$auc_rank, info$rho)
+  idx <- floor(info$sample_size/2)
+
+  g <- ggplot(data=df) + geom_point(aes(x=x, y=y)) +
+    geom_line(aes(x=x, y=fy), linetype="dashed", color="green") +
+    #geom_errorbar(aes(x=x, ymin=y-sd, ymax=y+sd), alpha=0.5, position=position_dodge(0.05)) +
+    theme_classic() + ylab('P(1|r)') + xlab('Rank') +
+    #annotate("text", label=msg1, x=0, y=0, hjust=0, vjust=0) +
+    annotate("text", label=msg2, x=idx, y=fy[idx], vjust=0, hjust=0) +
+    annotate("text", label=msg3, x=max(pcrd$rank), y=1.0, hjust=1, vjust=1) +
+    ggtitle(paste0('Pearson Correlation r=', round(co$estimate, digits = 3),
+                   ' p=', format(co$p.value, nsmall=3), ' between PCR and FD\n',
+                   'method: ', info$method))
+
+  ggsave(paste0("N", info$sample_size, "M", info$sample_n, ".pdf"), width=7, height=4)
+  return (g)
 }

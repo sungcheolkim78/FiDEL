@@ -1,11 +1,16 @@
-# Simulator.R
+# simulator.R
 #
-# Sungcheol Kim @ IBM
+# Sung-Cheol Kim @ IBM
 #
 # version 1.0.0 - 2020/01/15
 # version 1.0.1 - 2020/04/13 - clean up and check
+# version 1.1.0 - 2020/12/28 - add comments
 
-# generate labels - class1 and class2
+#' generate labels - class1 and class2
+#'
+#' @param N size of labels
+#' @param rho the prevalence N1/N
+#' @return A list of labels
 create.labels <- function(N=100, rho=0.5) {
   res <- rep('Class2', N)
   idx <- sample(N, N*rho)
@@ -15,7 +20,12 @@ create.labels <- function(N=100, rho=0.5) {
   return (to_label(res))
 }
 
-# add information about labels
+#' add information about labels
+#'
+#' @param ylist A list of labels
+#' @param class1 the label of class 1
+#' @param asfactor A boolean value
+#' @return A list of labels
 to_label <- function(ylist, class1=NULL, asfactor=FALSE) {
   # check y is binary system
   llist <- unique(ylist)
@@ -39,7 +49,13 @@ to_label <- function(ylist, class1=NULL, asfactor=FALSE) {
   else return (ylist)
 }
 
-# binary classifier using Gaussian score distribution
+#' binary classifier using Gaussian score distribution
+#'
+#' @param auc the AUC value
+#' @param y A list of labels
+#' @param tol the tolerance
+#' @param max_iter the maximum iteration to create correct AUC
+#' @return A list of scores
 create.scores.gaussian <- function(auc, y, tol=0.0001, max_iter=2000) {
   # check key numbers
 
@@ -77,17 +93,29 @@ create.scores.gaussian <- function(auc, y, tol=0.0001, max_iter=2000) {
   return(score)
 }
 
-# simple code to generate AUC list between initial and final values
+#' simple code to generate AUC list between initial and final values
+#'
+#' @param initial the starting AUC value
+#' @param final the ending AUC value
+#' @param N the number of AUC list
+#' @return A list of AUC values
 create.auclist <- function(initial=0.51, final=0.91, N=10) {
   if (initial <= 0.5) { initial = 0.501 }
   if (final >= 1.0) { final = 1.0 }
 
   delta <- (final - initial)/(N-1)
-  initial + seq(0, N-1)*delta
+  return(initial + seq(0, N-1)*delta)
 }
 
-# generate prediction matrix for classifer based on Gaussian score
-create_predictions <- function(n=1000, m=20, p=0.6, auclist=NULL, y=NULL, method='rank') {
+#' generate prediction matrix for classifer based on Gaussian score
+#'
+#' @param n the sample size
+#' @param m the number of AUC values
+#' @param p the prevalence
+#' @param auclist A list of AUC (optional)
+#' @param y the list of labels (optional)
+#' @return predictions, actual_labels, actual_performance
+create_predictions <- function(n=1000, m=20, p=0.6, auclist=NULL, y=NULL) {
   if (is.null(auclist)) {
     auclist <- create.auclist(0.51, 0.99, m)
   } else {

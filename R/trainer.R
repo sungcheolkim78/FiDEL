@@ -10,7 +10,7 @@ library(caret)
 library(doParallel)
 library(tictoc)
 
-#' mtrainer
+#' mtrainer: multiple trainer
 #'
 #' initialize mtrainer object for multiple algorithm container
 #'
@@ -80,11 +80,19 @@ mtrainer <- function(x = list(), dataInfo='temp', fitControl=NULL, update=TRUE) 
   validate_mtrainer(new_mtrainer(x, dataInfo, fitControl, update))
 }
 
+#' update mtrainer
+#'
+#' @param newlist A list of algorithm names
+#' @return mtrainer object
 update.mtrainer <- function(mtrainer, newlist) {
   mtrainer$model_list <- newlist
   validate_mtrainer(mtrainer)
 }
 
+#' addmodel mtrainer
+#'
+#' @param newlist A list of new algorithm names
+#' @return mtrainer object
 addmodel.mtrainer <- function(mtrainer, newmodelname) {
   check <- newmodelname %in% mtrainer$model_list
   mtrainer$model_list <- c(mtrainer$model_list, newmodelname[!check])
@@ -112,8 +120,15 @@ caret_train <- function(method, mtrainer, formula, tr_data, n_cores) {
   return (fit)
 }
 
-
-train.mtrainer <- function(mtrainer, formula, data_list, update=FALSE, save=TRUE, n_cores=-1) {
+#' train mtrainer models
+#'
+#' @param mtrainer S3 object
+#' @param formula the relation to show class column name
+#' @param data_list A list of data
+#' @param update A boolean value
+#' @param n_cores A number of cores for parallel process
+#' @return mtrainer object
+train.mtrainer <- function(mtrainer, formula, data_list, update=FALSE, n_cores=-1) {
   if (n_cores == -1) n_cores <- detectCores() - 1
   fname <- paste0(mtrainer$dataInfo, '.RData')
   if (file.exists(fname) & !update) { mtrainer$fitlist <- readRDS(fname) }
@@ -127,7 +142,7 @@ train.mtrainer <- function(mtrainer, formula, data_list, update=FALSE, save=TRUE
       message(paste0('... using cached result: ', mtrainer$model_list[i]))
     } else {
       # single training data case
-      if (length(data_list) == 1) 
+      if (length(data_list) == 1)
         fit <- caret_train(mtrainer$model_list[i], mtrainer, formula, data_list[[1]], n_cores)
       else
         fit <- caret_train(mtrainer$model_list[i], mtrainer, formula, data_list[[i]], n_cores)
@@ -145,7 +160,12 @@ train.mtrainer <- function(mtrainer, formula, data_list, update=FALSE, save=TRUE
   mtrainer
 }
 
-
+#' predict using mtrainer models
+#'
+#' @param mtrainer S3 object
+#' @param newdata data for prediction
+#' @param class1 a name for the class 1
+#' @return mtrainer object
 predict.mtrainer <- function(mtrainer, newdata=NULL, class1=NULL) {
   message(paste0('... predict using ', mtrainer$nmethods, ' base classifiers'))
 
@@ -169,9 +189,13 @@ predict.mtrainer <- function(mtrainer, newdata=NULL, class1=NULL) {
   }
   colnames(mtrainer$predictions) <- mtrainer$model_list
 
-  mtrainer
+  return(mtrainer)
 }
 
+#' plot the result of fitting models
+#'
+#' @param mtrainer S3 object
+#' @return dot plot
 plot.mtrainer <- function(mtrainer) {
   temp <- resamples(mtrainer$fitlist)
   dotplot(temp)
@@ -184,10 +208,6 @@ store.mtrainer <- function(mtrainer, filename='temp.RData') {
 
 print.mtrainer <- function(mtrainer, full=TRUE) {
   print(summary.mtrainer(mtrainer, full=full))
-}
-
-summary.mtrainer <- function(mtrainer, full=TRUE) {
-  # collect informations
 }
 
 # make reports over multiple fittings
