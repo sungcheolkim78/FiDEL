@@ -29,6 +29,32 @@ plot.pcr(pcrd, fname='results/Figure1.pdf')
 
 ### Figure 2 in PNAS
 
+```{r}
+library(FiDEL)
+
+# create beta mu dataframe
+auclist <- (2:48)*0.01 + 0.5
+rholist <- (2:18)*0.05
+res <- create_beta_mu(auclist, rholist, N=1)
+
+# convert to matrix
+rhoN <- length(unique(res$rho))
+AUCN <- length(unique(res$AUC))
+
+rho <- unique(res$rho)
+AUC <- unique(res$AUC)
+
+beta <- matrix(res$beta, nrow=rhoN, ncol=AUCN)
+mu <- matrix(res$mu, nrow=rhoN, ncol=AUCN)
+
+# plot
+pdf('results/3dplot.pdf', width=12, height=6)
+par(mfrow=c(1, 2))
+persp(rho, AUC, beta, theta = 30, phi = 15, shade=.3, ticktype='detailed', expand=.8, scale=T)
+persp(rho, AUC, mu, theta = 30, phi = 15, shade=.3, ticktype='detailed', expand=.8, scale=T)
+dev.off()
+```
+
 ### Figure 3 in PNAS
 
 ### Figure 4 in PNAS
