@@ -10,6 +10,23 @@ Use R-Studio and load `FiDEL.Rproj` and build/install
 
 ## Examples
 
+### Figure 1 in PNAS
+
+```{r}
+library(FiDEL)
+# generate labels
+y <- create.labels(N = 100000, rho=0.5)
+
+# generate scores with a specific AUC from gaussian distribution
+gs <- create.scores.gaussian(y, auc=0.9, tol = 0.0001)
+
+# create pcr data
+pcrd <- pcr(gs, y, sample_size=100, sample_n=1000)
+
+# save plot
+plot.pcr(pcrd, fname='results/Figure1.pdf')
+```
+
 ### Figure 2 in PNAS
 
 ### Figure 3 in PNAS
