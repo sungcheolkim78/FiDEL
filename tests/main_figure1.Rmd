@@ -1,0 +1,35 @@
+---
+title: "main_figure1"
+author: "Sungcheol Kim"
+date: "12/30/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(FiDEL)
+library(latex2exp)
+library(ggpubr)
+library(tictoc)
+library(data.table)
+```
+
+## Figure 1
+
+```{r}
+# generate labels
+y <- create.labels(N = 100000, rho=0.5)
+
+# generate scores with a specific AUC from gaussian distribution
+gs <- create.scores.gaussian(y, auc=0.9, tol = 0.0001)
+```
+
+```{r}
+# create pcr data
+pcrd <- pcr(gs, y, sample_size=100, sample_n=1000)
+```
+
+```{r}
+plot.pcr(pcrd, fname='results/Figure1.pdf')
+```
+

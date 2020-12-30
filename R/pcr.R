@@ -224,7 +224,7 @@ check.pcr <- function(pcrd) {
 #'
 #' @param pcrd pcr dataframe
 #' @return ggplot
-plot.pcr <- function(pcrd) {
+plot.pcr <- function(pcrd, fname='') {
   df <- data.table(x=pcrd$rank, y=pcrd$prob)
   info <- attr(pcrd, 'info')
 
@@ -248,6 +248,9 @@ plot.pcr <- function(pcrd) {
                    ' p=', format(co$p.value, nsmall=3), ' between PCR and FD\n',
                    'method: ', info$method))
 
-  ggsave(paste0("N", info$sample_size, "M", info$sample_n, ".pdf"), width=7, height=4)
+  if (fname == '') {
+    fname <- paste0("N", info$sample_size, "M", info$sample_n, ".pdf")
+  }
+  ggsave(fname, width=7, height=4)
   return (g)
 }

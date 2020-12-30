@@ -4,16 +4,16 @@
 \alias{create.scores.gaussian}
 \title{binary classifier using Gaussian score distribution}
 \usage{
-create.scores.gaussian(auc, y, tol = 1e-04, max_iter = 2000)
+create.scores.gaussian(auc0, y, tol = 1e-04, max_iter = 2000)
 }
 \arguments{
-\item{auc}{the AUC value}
-
 \item{y}{A list of labels}
 
 \item{tol}{the tolerance}
 
 \item{max_iter}{the maximum iteration to create correct AUC}
+
+\item{auc}{the AUC value}
 }
 \value{
 A list of scores

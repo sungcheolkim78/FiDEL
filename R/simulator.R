@@ -6,6 +6,8 @@
 # version 1.0.1 - 2020/04/13 - clean up and check
 # version 1.1.0 - 2020/12/28 - add comments
 
+library(data.table)
+
 #' generate labels - class1 and class2
 #'
 #' @param N size of labels
@@ -56,7 +58,7 @@ to_label <- function(ylist, class1=NULL, asfactor=FALSE) {
 #' @param tol the tolerance
 #' @param max_iter the maximum iteration to create correct AUC
 #' @return A list of scores
-create.scores.gaussian <- function(auc, y, tol=0.0001, max_iter=2000) {
+create.scores.gaussian <- function(auc0, y, tol=0.0001, max_iter=2000) {
   # check key numbers
 
   if (is.null(attr(y, 'rho')) || attr(y, 'rho') == 0) { y <- to_label(y) }
@@ -68,12 +70,12 @@ create.scores.gaussian <- function(auc, y, tol=0.0001, max_iter=2000) {
   count <- 1
 
   # initial mu2 value
-  mu <- 2 * erf.inv(2*auc - 1)
-  max_iter <- max_iter / ((auc - 0.5) * 10)
+  mu <- 2 * erf.inv(2*auc0 - 1)
+  max_iter <- max_iter / ((auc0 - 0.5) * 10)
 
   # repeat until the measured AUC become the target AUC
   simulated_auc = 0.5
-  while((abs(simulated_auc - auc) > tol) & (count < max_iter)) {
+  while((abs(simulated_auc - auc0) > tol) & (count < max_iter)) {
     score1 <- rnorm(N1, mean=0, sd=1)        # class 2 score (lower)
     score2 <- rnorm(N2, mean=mu, sd=1)       # class 1 score (higher)
 

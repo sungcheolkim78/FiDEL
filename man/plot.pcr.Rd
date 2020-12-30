@@ -4,7 +4,7 @@
 \alias{plot.pcr}
 \title{plot pcr with fermi-dirac distribution}
 \usage{
-\method{plot}{pcr}(pcrd)
+\method{plot}{pcr}(pcrd, fname = "")
 }
 \arguments{
 \item{pcrd}{pcr dataframe}

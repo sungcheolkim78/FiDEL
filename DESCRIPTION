@@ -8,6 +8,6 @@ Description: A binary classifier based on the class probability at a given rank 
 License: 
 Encoding: UTF-8
 LazyData: FALSE
-Imports: tidyverse, ggpubr, tictoc, doParallel
+Imports: tidyverse, ggpubr, tictoc, doParallel, data.table
 Suggests: kernlab, lme4, coin, modeltools, arm, party, caret, earth, RSNNS, C50, glmnet, mlbench, proxy, plotly
 RoxygenNote: 7.1.1
