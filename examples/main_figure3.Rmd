@@ -48,10 +48,10 @@ res
 ```
 
 ```{r}
-g1 <- ggplot(data=tmp) +
+g1 <- ggplot(data=res) +
   geom_point(aes(y=rstar, x=th_bac)) + 
   geom_abline(slope=1, linetype='dashed') + theme_classic() +
-  ylab(TeX('r_{FD}/N')) + xlab(TeX('r_{bac}/N')) +
+  ylab(TeX('r_{FD}/N')) + xlab(TeX('r_{bac}/N')) + 
   xlim(c(0.1,0.9)) + ylim(c(0.1,0.9))
 g1
 ```
@@ -69,5 +69,5 @@ gb2
 library(ggpubr)
 g <- ggarrange(g1, gb2, labels=c('A', 'B'), ncol=2, nrow=1)
 ggsave("results/Figure3.pdf", width=7, height=3.5)
-#print(g)
+print(g)
 ```

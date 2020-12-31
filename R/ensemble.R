@@ -312,13 +312,13 @@ setMethod("plot_single", "FDensemble", function(.Object, target, c, n=100, m=100
   }
 
   if (target == 'roc') {
-    pcr1 <- pcr(.Object@predictions[ , c], .Object@actual_label, N=n, M=m)
+    pcr1 <- pcr(.Object@predictions[ , c], .Object@actual_label, sample_size=n, sample_n=m)
     g <- plot.curves(pcr1)
     print(g)
   }
 
   if (target == 'pcr') {
-    pcr1 <- pcr(.Object@predictions[ , c], .Object@actual_label, N=n, M=m)
+    pcr1 <- pcr(.Object@predictions[ , c], .Object@actual_label, sample_size=n, sample_n=m)
     g <- plot.pcr(pcr1)
     print(g)
   }
