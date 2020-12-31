@@ -68,6 +68,9 @@ dev.off()
 create dataframe with AUC list and the prevalence list. This might take around 3 minutes.
 
 ```{r}
+library(FiDEL)
+library(latex2exp)
+
 rholist <- c(0.1, 0.3, 0.5, 0.7, 0.9)
 auclist <- create.auclist(0.6, 0.98, 10)
 N0 <- 50000
