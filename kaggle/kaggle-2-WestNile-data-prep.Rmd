@@ -1,0 +1,125 @@
+---
+title: "kaggle-2-WestNile-data-prep"
+author: "Sungcheol Kim"
+date: "12/30/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+#install.packages("mefa", repos="http://R-Forge.R-project.org")
+library(mefa)
+library(lubridate)
+path <- "../input/"
+train = read.csv(paste0(path,"train.csv"),header=TRUE,stringsAsFactors = T)
+test = read.csv(paste0(path,"test.csv"),header=TRUE,stringsAsFactors = T)
+weather = read.csv(paste0(path,"weather.csv"),header=TRUE,stringsAsFactors = T)
+spray = read.csv(paste0(path,"spray.csv"),header=TRUE)
+subm = read.csv(paste0(path,"sampleSubmission.csv"),header=TRUE,stringsAsFactors = F)
+
+weather[(weather == " ")] <- NA
+weather[(weather == "M")] <- NA
+weather[(weather == "-")] <- NA
+weather[(weather == "T")] <- NA
+weather[(weather == " T")] <- NA
+weather[(weather == "  T")] <- NA
+
+weather$Water1 = NULL
+weather$Depth = NULL
+weather$SnowFall = NULL
+weather$Sunrise = NULL
+weather$Sunset = NULL
+weather$Depart = NULL
+
+#Get the nearest station
+train$Station <- ifelse((((train$Latitude-41.995)^2 + (train$Longitude + 87.933)^2) < 
+                          ((train$Latitude-41.786)^2 + (train$Longitude + 87.752)^2)),1,2)
+
+test$Station <- ifelse((((test$Latitude-41.995)^2 + (test$Longitude + 87.933)^2) < 
+                           ((test$Latitude-41.786)^2 + (test$Longitude + 87.752)^2)),1,2)
+
+
+
+w1 = weather[weather$Station ==1,]
+w2 = weather[weather$Station ==2,]
+
+#Replace NA's with the nearest value above
+W1 <- rbind(w1[2,],w1)
+W1 <- fill.na(W1) 
+W1 <- W1[-1,]
+rownames(W1) <- NULL
+
+W2 <- rbind(w2[2,],w2)
+W2 <- fill.na(W2) 
+W2 <- W2[-1,]
+rownames(W2) <- NULL
+
+Weather <- rbind(W1,W2)
+
+for(i in c(3:9,11:16)){
+  Weather[,i] <- as.numeric(Weather[,i])
+}
+Weather[,10] <- factor(Weather[,10])
+
+
+train <- merge.data.frame(train,Weather)
+test <- merge.data.frame(test,Weather)
+test <- test[with(test,order(Id)),]
+
+train$day<-as.numeric(day(as.Date(train$Date)))
+train$dayofyear<-as.numeric(yday(as.Date(train$Date))) 
+#train$month<-factor(month(as.Date(train$Date)))
+train$dayofweek<-as.factor(wday(as.Date(train$Date)))
+train$year <- as.integer(year(as.Date(train$Date))) 
+train$week <- as.integer(week(as.Date(train$Date)))
+
+test$day<-as.numeric(day(as.Date(test$Date)))
+test$dayofyear<-as.numeric(yday(as.Date(test$Date)))
+#test$month<-factor(month(as.Date(test$Date)))
+test$dayofweek<-as.factor(wday(as.Date(test$Date)))
+test$year <- as.integer(year(as.Date(test$Date)))+1   ##line up even years with odd
+test$year<-ifelse(test$year==2015,2011,test$year)     ##no +1 data for 2014 (2015); weather looked more like 2011
+test$week <- as.integer(week(as.Date(test$Date)))
+
+train[1:2,c(4:11,14:32)]
+head(train[1:2,c(4:11,14:32)])
+library(h2o)
+localH2O <- h2o.init(nthreads = -1,max_mem_size = '7g')
+
+test.hex <- as.h2o(localH2O,test)
+train.hex <- as.h2o(localH2O,train)
+head(train[c(4:11,14:32)])
+model_gbm <- h2o.gbm(x=c(4:11,14:32),y = 13,
+                          data = train.hex,
+                          n.trees = 350,
+                          n.minobsinnode = 1,
+                          shrinkage = 0.03,
+                          n.bins = 50,
+                          importance = TRUE)
+
+print("Output model characteristics, including variable importance list and training accuracy")
+#model@model$varimp  ##this would be how you get just the variable importance; the following "model" shows everything
+model_gbm
+pred_gbm <- h2o.predict(model_gbm,test.hex)
+p_gbm<- as.data.frame(pred_gbm)
+
+model_rf <- h2o.randomForest(x=c(4:11,14:32),y = 13,data = train.hex,
+                          mtries = 18,
+                          sample.rate = 0.5,
+                          classification = T,ntree = 500,verbose = T)
+
+model_rf
+pred_rf <- h2o.predict(model_rf,test.hex)
+p_rf <- as.data.frame(pred_rf)
+summary(p_rf)
+summary(p_gbm)
+subm[,2] = p_rf[,3]*0.5+p_gbm[,3]*0.5
+summary(subm)
+write.csv(subm,file="wNileVirusGBM.csv",row.names=FALSE)
+```
+
