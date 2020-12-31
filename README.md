@@ -1,6 +1,6 @@
 # Fermi-Dirac based Ensemble Learning (FiDEL)
 
-an ensemble learning algorithm that uses the calibrated nature of the output probability of possibly very different classifiers in an unsupervised setting well-suited for problems when we have scant data at hand to apply supervised ensemble learning.
+an ensemble learning algorithm that uses the calibrated nature of the output probability of possibly very different classifiers in an unsupervised setting well-suited for problems when we have scant data at hand to apply supervised ensemble learning. 
 
 ## Installation
 
@@ -17,6 +17,10 @@ R> install_github('sungcheolkim78/FiDEL')
 ```
 
 ## Examples
+
+- `examples` folder: Rmarkdown file to generate figures in the submitted paper
+- `UCI` folder: examples of FiDEL method to apply on the cases in UCI data sets (Sonar, Bank, Iono, Yeast, Mushroom, Seismic)
+- `kaggle` folder: examples of FiDEL method to apply on the case in kaggle competitions (CATII, WestNile, Porto)
 
 ### Figure 1 in PNAS
 
