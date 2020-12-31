@@ -12,6 +12,7 @@ Clone the repository and then load `FiDEL.Rproj` using R-Studio and build/instal
 or
 
 ```
+R> install.packages('devtools')
 R> install_github('sungcheolkim78/FiDEL')
 ```
 
