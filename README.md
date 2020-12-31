@@ -8,6 +8,12 @@ required packages: kernlab, lme4, coin, modeltools, arm, party, caret, earth, RS
 
 Use R-Studio and load `FiDEL.Rproj` and build/install
 
+or
+
+```
+R> install_github('sungcheolkim78/FiDEL')
+```
+
 ## Examples
 
 ### Figure 1 in PNAS
