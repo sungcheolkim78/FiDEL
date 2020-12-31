@@ -48,7 +48,7 @@ beta <- matrix(res$beta, nrow=rhoN, ncol=AUCN)
 mu <- matrix(res$mu, nrow=rhoN, ncol=AUCN)
 
 # plot
-pdf('results/3dplot.pdf', width=12, height=6)
+pdf('results/Figure2.pdf', width=12, height=6)
 par(mfrow=c(1, 2))
 persp(rho, AUC, beta, theta = 30, phi = 15, shade=.3, ticktype='detailed', expand=.8, scale=T)
 persp(rho, AUC, mu, theta = 30, phi = 15, shade=.3, ticktype='detailed', expand=.8, scale=T)
