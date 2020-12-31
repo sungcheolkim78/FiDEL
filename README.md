@@ -4,9 +4,10 @@ an ensemble learning algorithm that uses the calibrated nature of the output pro
 
 ## Installation
 
-required packages: kernlab, lme4, coin, modeltools, arm, party, caret, earth, RSNNS, C50, glmnet
+- required packages: caret, tidyverse, tictoc, doParallel, data.table, ggpubr
+- recommended packages for various classifiers: kernlab, lme4, coin, modeltools, arm, party, earth, RSNNS, C50, glmnet
 
-Use R-Studio and load `FiDEL.Rproj` and build/install
+Clone the repository and then load `FiDEL.Rproj` using R-Studio and build/install
 
 or
 
