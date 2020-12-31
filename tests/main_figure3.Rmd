@@ -1,5 +1,5 @@
 ---
-title: "confidence"
+title: "main_figure3"
 author: "Sung-Cheol Kim"
 date: "1/22/2020"
 output: html_document
@@ -8,29 +8,66 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(FiDEL)
-library(pROC)
+#library(pROC)
+library(tictoc)
 ```
 
 # check CI function
 
 ```{r}
-var_auc_fermi(0.9, 0.9, N=10000, method='integral', debug.flag = T)
+rholist <- c(0.1, 0.3, 0.5, 0.7, 0.9)
+auclist <- create.auclist(0.6, 0.98, 10)
+N0 <- 50000
+
+res <- data.table()
+
+for(r in rholist) {
+  for (a in auclist) {
+    # create test sets using AUC and prevalence
+    y <- create.labels(N=N0, rho=r)
+    gs <- create.scores.gaussian(y, auc=a)
+    ds <- build_curve(gs, y)
+    info <- attr(ds, 'info')
+    
+    # calculate confidence interval using pROC package
+    ds_roc <- roc(y, gs)
+    ds_ci <- ci(ds_roc)
+    
+    # data frame
+    tmp <- data.table(N=length(y), rho=attr(y,'rho'), auc=a, auc_bac=info$auc_bac,
+             auprc=info$auprc, th_bac=info$th_bac, rstar=info$rstar, 
+             pxxy=info$Pxxy, pxyy=info$Pxyy, sig_auc=sqrt(info$var_auc), 
+             sig_auc_delong=(ds_ci[2]-ds_ci[1])*.5)
+    res <- rbind(res, tmp)
+    rm(ds)
+    rm(ds_roc)
+  }
+}
+
+res
 ```
 
 ```{r}
-var_auc_fermi(0.9, 0.9, N=10000, method = 'sampling', debug.flag = T)
+g1 <- ggplot(data=tmp) +
+  geom_point(aes(y=rstar, x=th_bac)) + 
+  geom_abline(slope=1, linetype='dashed') + theme_classic() +
+  ylab(TeX('r_{FD}/N')) + xlab(TeX('r_{bac}/N')) +
+  xlim(c(0.1,0.9)) + ylim(c(0.1,0.9))
+g1
 ```
 
 ```{r}
-get_fermi(0.9, 0.5, N=1000)
+gb2 <- ggplot(data=res) + 
+  geom_point(aes(x=sig_auc_delong, y=sig_auc)) + 
+  geom_abline(slope=1, linetype='dashed') + theme_classic() + 
+  xlab(TeX('$\\sigma_{AUC}$ (Delong)')) + ylab(TeX('$\\sigma_{AUC}$ (FD)')) + 
+  theme(legend.position='none')
+gb2
 ```
 
 ```{r}
-pcrd <- data.table(rank=1:1000)
-pcrd$prob <- fermi.b(pcrd$rank, 7.5556e-3, 4.999e2)
+library(ggpubr)
+g <- ggarrange(g1, gb2, labels=c('A', 'B'), ncol=2, nrow=1)
+ggsave("results/Figure3.pdf", width=7, height=3.5)
+#print(g)
 ```
-
-```{r}
-var
-```
-

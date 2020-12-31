@@ -9,8 +9,6 @@ library(data.table)
 library(ggpubr)
 library(tictoc)
 
-cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
-
 #' Calculate AUC using rank
 #'
 #' Function to calculate AUC from score and ground truth label using rank sum formula
@@ -20,9 +18,9 @@ cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
 #' @param class1 A name of class 1
 #' @return the area under receiver operating curve
 #' @examples
-#' auc.rank(scores, y)
+#' auc_rank(scores, y)
 #' @export
-auc.rank <- function(scores, y, class1=NULL) {
+auc_rank <- function(scores, y, class1=NULL) {
   # validate inputs
   stopifnot(length(scores) == length(y))
   if (is.null(attr(y, 'rho')) || attr(y, 'rho') == 0) { y <- to_label(y, class1=class1) }
@@ -66,7 +64,7 @@ build_curve <- function(scores, y, class1=NULL) {
   df$prec <- cumsum(df$y == attr(y, 'class1'))/df$rank
 
   # calculate metric
-  auc0 <- auc.rank(scores, y, class1=class1)
+  auc0 <- auc_rank(scores, y, class1=class1)
   # smooth curves and calculate optimal threshold
   l1 <- loess(bac ~ rank, df, span=0.1)
   # calculate beta and mu based on AUC and prevalence
@@ -205,6 +203,28 @@ get_fermi <- function(auc, rho, N=1, resol=0.0001, method='beta') {
   else { return (c(l1=-temp$par[1]*temp$par[2], l2=temp$par[1]/N, rs=rs*N)) }
 }
 
+# create beta mu matrix with auclist, rholist
+create_beta_mu <- function(auclist, rholist, N=1000) {
+  res <- data.table()
+
+  for (a in auclist) {
+    for (r in rholist) {
+      temp <- get_fermi(a, r, N=1)
+      temp <- c(temp, a, r)
+      res <- cbind(res, temp)
+    }
+  }
+
+  res <- data.table(t(res))
+  if (N == 1) {
+    colnames(res) <- c('beta*N', 'mu/N', 'rs', 'AUC', 'rho')
+  } else {
+    colnames(res) <- c('beta', 'mu', 'rs', 'AUC', 'rho')
+  }
+
+  res
+}
+
 # plot histogram of score distribution
 plot.scores <- function(scores, y, class1=NULL) {
   y.flag <- TRUE
@@ -243,6 +263,7 @@ plot.curves <- function(df, filename='temp.pdf', type=-1) {
   N <- length(df$bac)
   idx <- floor(N*info$th_bac)
   idx_rs <- floor(N*info$rstar)
+  cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
   g1 <- ggplot(data=df, aes(x=fpr, y=tpr)) + geom_line(alpha=0.7, size=1.5) +
     xlab("FPR") + ylab("TPR") + theme_classic() +

@@ -83,7 +83,7 @@ countXYY <- function(pcr_m, seed=1) {
 #' @param iter A number of iteration
 #' @param debug.flag boolean value to show plot
 #' @return Pxy (=AUC)
-auc.Pxysample <- function(pcr_m, iter=5000, debug.flag=FALSE) {
+Pxy.sample <- function(pcr_m, iter=5000, debug.flag=FALSE) {
   iters <- sample(1:iter)
   res <- purrr::map_dbl(iters, ~countXY(pcr_m, seed=.x))
   res <- cumsum(res)/(1:iter)
@@ -201,7 +201,7 @@ var_auc_pcr <- function(pcr_m, debug.flag=FALSE) {
 
   Pxxy_value <- Pxxy.sample(pcr_m)
   Pxyy_value <- Pxyy.sample(pcr_m)
-  Pxy_value <- auc.Pxysample(pcr_m)
+  Pxy_value <- Pxy.sample(pcr_m)
 
   var_auc <- (Pxy_value*(1 - Pxy_value) +
                 (N1 - 1)*(Pxxy_value - Pxy_value*Pxy_value) +
@@ -243,7 +243,7 @@ var_auc_fermi <- function(auc, rho, N=1000, iter=5000, method='sampling', debug.
 
     Pxxy_value <- Pxxy.sample(cm, iter=iter)
     Pxyy_value <- Pxyy.sample(cm, iter=iter)
-    Pxy_value <- auc.Pxysample(cm, iter=iter)
+    Pxy_value <- Pxy.sample(cm, iter=iter)
   } else {
     Pxxy_value <- Pxxy_int(b[[1]]*N, b[[2]]/N, rho)
     Pxyy_value <- Pxyy_int(b[[1]]*N, b[[2]]/N, rho)

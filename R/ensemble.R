@@ -89,7 +89,7 @@ setMethod("calculate_performance", "FDensemble", function(.Object, actual_label,
   .Object@actual_label <- actual_label
 
   # calculate auc using labels
-  .Object@actual_performance <- apply(.Object@predictions, 2, auc.rank, actual_label)
+  .Object@actual_performance <- apply(.Object@predictions, 2, auc_rank, actual_label)
   for (i in seq_along(.Object@actual_performance)) {
     .Object@method_names[i] <- paste0(.Object@method_names[i], '\n', 'A=',
                                       round(.Object@actual_performance[i], digits=3))
@@ -120,7 +120,7 @@ setMethod("calculate_performance", "FDensemble", function(.Object, actual_label,
   .Object@rank_matrix <- cbind(.Object@rank_matrix, A_FD=.Object@estimated_rank)
 
   # calculate ensemble AUC
-  .Object@ensemble_auc <- auc.rank(.Object@estimated_logit, actual_label)
+  .Object@ensemble_auc <- auc_rank(.Object@estimated_logit, actual_label)
   cat('... Ensemble AUC:', .Object@ensemble_auc, '\n')
   cat('... AUC list:', .Object@actual_performance, '\n')
   cat('... beta list:', .Object@beta, '\n')
@@ -160,7 +160,7 @@ setMethod("predict_performance", "FDensemble", function(.Object, actual_performa
   .Object@estimated_label <- to_label(ifelse(.Object@estimated_logit >0, 'class1', 'class2'))
   .Object@estimated_prob <- 1/(1+exp(-.Object@estimated_logit))
   .Object@estimated_rank <- frankv(.Object@estimated_logit)
-  .Object@ensemble_auc <- auc.rank(.Object@estimated_logit, .Object@estimated_label)
+  .Object@ensemble_auc <- auc_rank(.Object@estimated_logit, .Object@estimated_label)
 
   if (ncol(.Object@rank_matrix) != ncol(.Object@predictions)) {
     .Object@rank_matrix <- .Object@rank_matrix[, -ncol(.Object@rank_matrix)]
@@ -257,7 +257,7 @@ setMethod("plot_ensemble", "FDensemble", function(.Object, filename='ens.pdf', m
   }
 
   agg_logit <- t(apply(.Object@logit_matrix[,order_index], 1, cumsum))
-  agg_auc <- apply(agg_logit, 2, auc.rank, .Object@actual_label)
+  agg_auc <- apply(agg_logit, 2, auc_rank, .Object@actual_label)
   min_auc <- min(.Object@actual_performance)
   max_auc <- max(.Object@actual_performance)
   df <- data.table(x=1:.Object@nmethods, agg_auc=agg_auc, algorithm=.Object@method_names[order_index])
@@ -383,7 +383,7 @@ cal_partial_performance <- function(.Object, nmethod_list=5:7, nsample=20) {
   for (j in nmethod_list) {
     for (i in 1:nsample) {
       modellist <- sample(1:.Object@nmethods, j)
-      FDAuc <- auc.rank(-rowSums(.Object@logit_matrix[,modellist]), .Object@actual_label)
+      FDAuc <- auc_rank(-rowSums(.Object@logit_matrix[,modellist]), .Object@actual_label)
       BestAuc <- max(.Object@actual_performance[modellist])
 
       x <- c(x, BestAuc)
@@ -436,7 +436,7 @@ ensemble.fermi <- function(predictions, y, alpha = 1.0, method='+', debug.flag =
 
   res <- matrix(0, nrow=N, ncol=M)
   fd <- matrix(0, nrow=M, ncol=4)
-  auclist <- apply(predictions, 2, auc.rank, y)
+  auclist <- apply(predictions, 2, auc_rank, y)
   fd[, 2:4] <- t(sapply(auclist, get_fermi, attr(y, 'rho'), N=N))
   fd[, 1] <- t(auclist)
 

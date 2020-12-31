@@ -1,0 +1,39 @@
+---
+title: "main_figure2"
+author: "Sungcheol Kim"
+date: "12/30/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(FiDEL)
+```
+
+## R Markdown
+
+```{r}
+auclist <- (2:48)*0.01 + 0.5
+rholist <- (2:18)*0.05
+N <- 1000
+res <- create_beta_mu(auclist, rholist, N=1)
+```
+
+```{r}
+rhoN <- length(unique(res$rho))
+AUCN <- length(unique(res$AUC))
+
+rho <- unique(res$rho)
+AUC <- unique(res$AUC)
+
+betaN <- matrix(res[['beta*N']], nrow=rhoN, ncol=AUCN)
+muN <- matrix(res[['mu/N']], nrow=rhoN, ncol=AUCN)
+```
+
+```{r}
+#pdf('results/3dplot.pdf', width=12, height=6)
+par(mfrow=c(1, 2))
+persp(rho, AUC, betaN, theta = 30, phi = 15, shade=.3, ticktype='detailed', expand=.8, scale=T)
+persp(rho, AUC, muN, theta = 30, phi = 15, shade=.3, ticktype='detailed', expand=.8, scale=T)
+#dev.off()
+```

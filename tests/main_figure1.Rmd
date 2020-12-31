@@ -8,10 +8,10 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(FiDEL)
-library(latex2exp)
-library(ggpubr)
-library(tictoc)
-library(data.table)
+#library(latex2exp)
+#library(ggpubr)
+#library(tictoc)
+#library(data.table)
 ```
 
 ## Figure 1

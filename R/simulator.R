@@ -84,7 +84,7 @@ create.scores.gaussian <- function(auc0, y, tol=0.0001, max_iter=2000) {
     score[y == attr(y, 'class1')] <- score1
     score[y == attr(y, 'class2')] <- score2
 
-    simulated_auc <- auc.rank(score, y)
+    simulated_auc <- auc_rank(score, y)
 
     count <- count + 1
   }
