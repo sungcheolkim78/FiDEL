@@ -51,7 +51,7 @@ new_mtrainer <- function(x = list(), dataInfo = 'temp', fitControl = NULL, updat
   }
 
   structure(list(model_list = x,
-                 modelInfo = list(label="FDensemble"),
+                 modelInfo = list(label="FiDEL"),
                  dataInfo = dataInfo,
                  prevalence = numeric(),
                  nmethods = length(x),

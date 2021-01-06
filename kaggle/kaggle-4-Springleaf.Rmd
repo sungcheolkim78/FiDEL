@@ -10,6 +10,51 @@ knitr::opts_chunk$set(echo = TRUE)
 library(data.table)
 ```
 
+## Train data
+
+```{r}
+train <- as.data.table(readr::read_csv('data/data-springleaf.csv'))
+train$y <- ifelse(train$target == 1, 'Yes', 'No')
+train$y <- as.factor(train$y)
+train <- train[, -c('X1', 'ID', 'target', 'VAR_1427', 'VAR_0226', 'VAR_0230', 'VAR_0236')]
+
+#head(train)
+```
+
+```{r}
+train[is.na(train)] <- -1
+#test[is.na(test)]   <- -1
+```
+
+```{r}
+table(train$y)
+```
+
+```{r}
+folds <- createFolds(train$y, k=22, list = TRUE)
+traininglist <- lapply(folds, function(x) train[x, ])
+#training <- train[ inTraining0,]
+testing  <- traininglist[[22]]
+testingY <- to_label(testing$y, class1='Yes')
+```
+
+```{r}
+model_list <- c('pls', 'rda', 'svmLinear', 'svmRadial', 'knn', 'earth', 'avNNet', 'mlp', 'nb', 'rf', 'rpart', 'ctree', 'C5.0', 'bayesglm', 'glm', 'glmnet', 'simpls', 'dwdRadial', 'xgbTree', 'xgbLinear', 'nnet')
+t1 <- mtrainer(model_list, dataInfo = 'SpringLeaf')
+```
+
+```{r}
+t1 <- train.mtrainer(t1, y~., traininglist, update=TRUE)
+```
+
+```{r}
+t1 <- predict.mtrainer(t1, newdata=testing)
+auclist <- apply(t1$predictions, 2, auc_rank, testingY)
+
+fde1 <- fde(t1$predictions)
+fde1 <- predict_performance(fde1, auclist, attr(testingY, 'rho'))
+```
+
 ## west nile virus prediction
 
 ```{r cars}

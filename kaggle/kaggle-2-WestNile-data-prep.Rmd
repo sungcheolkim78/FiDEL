@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 #install.packages("mefa", repos="http://R-Forge.R-project.org")
 library(mefa)
 library(lubridate)
-path <- "../input/"
+path <- "./data/westnile/"
 train = read.csv(paste0(path,"train.csv"),header=TRUE,stringsAsFactors = T)
 test = read.csv(paste0(path,"test.csv"),header=TRUE,stringsAsFactors = T)
 weather = read.csv(paste0(path,"weather.csv"),header=TRUE,stringsAsFactors = T)
@@ -65,8 +65,9 @@ for(i in c(3:9,11:16)){
   Weather[,i] <- as.numeric(Weather[,i])
 }
 Weather[,10] <- factor(Weather[,10])
+```
 
-
+```{r}
 train <- merge.data.frame(train,Weather)
 test <- merge.data.frame(test,Weather)
 test <- test[with(test,order(Id)),]
@@ -85,15 +86,28 @@ test$dayofweek<-as.factor(wday(as.Date(test$Date)))
 test$year <- as.integer(year(as.Date(test$Date)))+1   ##line up even years with odd
 test$year<-ifelse(test$year==2015,2011,test$year)     ##no +1 data for 2014 (2015); weather looked more like 2011
 test$week <- as.integer(week(as.Date(test$Date)))
+```
 
+```{r}
 train[1:2,c(4:11,14:32)]
+```
+
+```{r}
 head(train[1:2,c(4:11,14:32)])
+
+write.csv(train, 'data-westnile.csv')
+```
+
+```{r}
 library(h2o)
 localH2O <- h2o.init(nthreads = -1,max_mem_size = '7g')
 
 test.hex <- as.h2o(localH2O,test)
 train.hex <- as.h2o(localH2O,train)
 head(train[c(4:11,14:32)])
+```
+
+```{r}
 model_gbm <- h2o.gbm(x=c(4:11,14:32),y = 13,
                           data = train.hex,
                           n.trees = 350,

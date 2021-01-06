@@ -13,10 +13,11 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(readr)
-library(xgboost)
+#library(xgboost)
 
-set.seed(721) #seed bag1:8, then eta=0.06not0.04&nround125not250: bag2:64, bag3:6, bag4:88, bag5: 0.03-300-seed666
-#bag6:16, train[1:80000,], val=train[80001:120000,], 0.06, 125  #bag7: 888,train[65000:145000,], val=train[1:40000,], 0.06, 125 
+#set.seed(721) #seed bag1:8, then eta=0.06not0.04&nround125not250: bag2:64, bag3:6, bag4:88, bag5: 0.03-300-seed666
+#bag6: 16, train[1:80000,], val=train[80001:120000,], 0.06, 125  
+#bag7: 888,train[65000:145000,], val=train[1:40000,], 0.06, 125 
 #bag8: 888,train[65000:145000,], val=train[1:40000,], 0.03, 300
 
 #seed bag9:9999, 0.02,300,random
@@ -25,8 +26,8 @@ set.seed(721) #seed bag1:8, then eta=0.06not0.04&nround125not250: bag2:64, bag3:
 
 
 cat("reading the train and test data\n")
-train <- read_csv("../input/train.csv")
-test  <- read_csv("../input/test.csv")
+train <- read_csv("./data/springleaf/train.csv")
+#test  <- read_csv("./data/springleaf/test.csv")
 
 train.unique.count=lapply(train, function(x) length(unique(x)))
 train.unique.count_1=unlist(train.unique.count[unlist(train.unique.count)==1])
@@ -40,10 +41,10 @@ delete_NA918=names(which(unlist(lapply(train[,(names(train) %in% names(train.uni
 
 #VARS to delete
 #safe to remove VARS with 56, 89 and 918 NA's as they are covered by other VARS
-print(length(c(delete_const,delete_NA56,delete_NA89,delete_NA918)))
+print(length(c(delete_const, delete_NA56, delete_NA89, delete_NA918)))
 
-train=train[,!(names(train) %in% c(delete_const,delete_NA56,delete_NA89,delete_NA918,"VAR_0073"))]
-test=test[,!(names(test) %in% c(delete_const,delete_NA56,delete_NA89,delete_NA918,"VAR_0073"))]
+train=train[,!(names(train) %in% c(delete_const, delete_NA56, delete_NA89, delete_NA918,"VAR_0073"))]
+#test=test[,!(names(test) %in% c(delete_const, delete_NA56, delete_NA89, delete_NA918, "VAR_0073"))]
 
 # From manual data analysis
 datecolumns = c("VAR_0075", "VAR_0156", "VAR_0157", "VAR_0158", "VAR_0159", "VAR_0166", "VAR_0167", "VAR_0168", "VAR_0176", "VAR_0177", "VAR_0178", "VAR_0179", "VAR_0204", "VAR_0217")
@@ -60,18 +61,17 @@ train_cc <- NULL
 train_cropped <- NULL
 gc()
 
-test_cropped <- test[datecolumns]
-test_cc <- data.frame(apply(test_cropped, 2, function(x) as.double(strptime(x, format='%d%b%y:%H:%M:%S', tz="UTC")))) #2 = columnwise
+#test_cropped <- test[datecolumns]
+#test_cc <- data.frame(apply(test_cropped, 2, function(x) as.double(strptime(x, #format='%d%b%y:%H:%M:%S', tz="UTC")))) #2 = columnwise
 
-for (dc in datecolumns){
-  test[dc] <- NULL
-  test[dc] <- test_cc[dc]
-}
+#for (dc in datecolumns){
+#  test[dc] <- NULL
+#  test[dc] <- test_cc[dc]
+#}
 
-test_cc <- NULL
-test_cropped <- NULL
-gc()
-
+#test_cc <- NULL
+#test_cropped <- NULL
+#gc()
 
 # safe target and put it at the end again
 train_target <- train$target
@@ -84,27 +84,31 @@ head(train$VAR_0073)
 
 for (f in feature.names) {
   if (class(train[[f]])=="character") {
-    levels <- unique(c(train[[f]], test[[f]]))
+    levels <- unique(train[[f]])
     train[[f]] <- as.integer(factor(train[[f]], levels=levels))
-    test[[f]]  <- as.integer(factor(test[[f]],  levels=levels))
   }
 }
 
-cat("replacing missing values with -1\n")
+#cat("replacing missing values with -1\n")
 train[is.na(train)] <- -1
-test[is.na(test)]   <- -1
+#test[is.na(test)]   <- -1
+```
 
+```{r}
 cat("sampling train to get around 8GB memory limitations\n")
-train <- train[sample(nrow(train), 120000),]
+train <- train[sample(nrow(train), 22000),]
 dim(train)
+write.csv(train, 'data/data-springleaf.csv')
 gc()
+```
 
+```{r}
 h <- sample(nrow(train), 90000)
 
 val<-train[-h,]
 gc()
 
-train <-train[h,]
+train<-train[h,]
 gc()
 
 #for bag 6
@@ -116,7 +120,9 @@ gc()
 #val=train[1:40000,]
 #train=train[65000:145000,]
 #gc()
+```
 
+```{r}
 dtrain <- xgb.DMatrix(data.matrix(train[,feature.names]), label=train$target)
 
 train=train[1:3,]

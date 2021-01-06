@@ -15,7 +15,7 @@ library(data.table)
 
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
-setClass("FDensemble",
+setClass("FiDEL",
          representation(predictions = "matrix",
                         logit_matrix = "matrix",
                         rank_matrix = "matrix",
@@ -37,8 +37,8 @@ setClass("FDensemble",
                         estimated_prob = "numeric"
                         ))
 
-setMethod("initialize", "FDensemble", function(.Object, predictions, ...) {
-  #cat("... FDensemble initializer \n")
+setMethod("initialize", "FiDEL", function(.Object, predictions, ...) {
+  #cat("... FiDEL initializer \n")
   .Object@predictions <- predictions
   .Object@nsamples <- nrow(predictions)
   .Object@nmethods <- ncol(predictions)
@@ -57,23 +57,23 @@ setMethod("initialize", "FDensemble", function(.Object, predictions, ...) {
   return(.Object)
 })
 
-fde <- fdensemble <- function(predictions, actual_label) {
-  obj <- new (Class="FDensemble", predictions = predictions)
+fde <- FiDEL <- function(predictions, actual_label) {
+  obj <- new (Class="FiDEL", predictions = predictions)
   if (!missing(actual_label)) {
-    message('... FDensemble with actual_label')
+    message('... FiDEL with actual_label')
     calculate_performance(obj, actual_label)
   } else {
-    message('... FDensemble with only predictions')
+    message('... FiDEL with only predictions')
     obj
   }
 }
 
-setMethod("show", "FDensemble", function(object) {
+setMethod("show", "FiDEL", function(object) {
   cat("# of methods: ", object@nmethods, "\n",
       "# of samples: ", object@nsamples)
 })
 
-setValidity("FDensemble", function(object) {
+setValidity("FiDEL", function(object) {
   if (object@nsamples == dim(object@predictions)[1]) {
     return (TRUE)
   } else {
@@ -83,7 +83,7 @@ setValidity("FDensemble", function(object) {
 
 setGeneric("calculate_performance", function(.Object, actual_label, alpha=1) {standardGeneric("calculate_performance")})
 
-setMethod("calculate_performance", "FDensemble", function(.Object, actual_label, alpha=1) {
+setMethod("calculate_performance", "FiDEL", function(.Object, actual_label, alpha=1) {
   tic(sprintf('... N:%d, M:%d', .Object@nsamples, .Object@nmethods))
   # save label data
   .Object@actual_label <- actual_label
@@ -132,7 +132,7 @@ setMethod("calculate_performance", "FDensemble", function(.Object, actual_label,
 
 setGeneric("predict_performance", function(.Object, actual_performance, p, alpha=1) {standardGeneric("predict_performance")})
 
-setMethod("predict_performance", "FDensemble", function(.Object, actual_performance, p, alpha=1) {
+setMethod("predict_performance", "FiDEL", function(.Object, actual_performance, p, alpha=1) {
   tic(sprintf('... N:%d, M:%d', .Object@nsamples, .Object@nmethods))
   # calculate auc using labels
   .Object@actual_performance <- actual_performance
@@ -157,7 +157,7 @@ setMethod("predict_performance", "FDensemble", function(.Object, actual_performa
     .Object@logit_matrix[, m] <- .Object@beta[m]^alpha * (.Object@rstar[m] - .Object@logit_matrix[, m] )
   }
   .Object@estimated_logit <- -rowMeans(.Object@logit_matrix)
-  .Object@estimated_label <- to_label(ifelse(.Object@estimated_logit >0, 'class1', 'class2'))
+  .Object@estimated_label <- to_label(ifelse(.Object@estimated_logit > 0, 'class1', 'class2'), asfactor=TRUE)
   .Object@estimated_prob <- 1/(1+exp(-.Object@estimated_logit))
   .Object@estimated_rank <- frankv(.Object@estimated_logit)
   .Object@ensemble_auc <- auc_rank(.Object@estimated_logit, .Object@estimated_label)
@@ -179,7 +179,7 @@ setMethod("predict_performance", "FDensemble", function(.Object, actual_performa
 
 setGeneric("plot_FDstatistics", function(.Object) {standardGeneric("plot_FDstatistics")})
 
-setMethod("plot_FDstatistics", "FDensemble", function(.Object) {
+setMethod("plot_FDstatistics", "FiDEL", function(.Object) {
     df <- data.frame(x=.Object@actual_performance, b=.Object@beta, m=.Object@mu, rs=.Object@rstar)
     g1 <- ggplot(data = df) + geom_point(aes(x=x, y=b)) + xlab('AUC') + ylab('beta') + theme_classic()
     g2 <- ggplot(data = df) + geom_point(aes(x=x, y=m)) + xlab('AUC') + ylab('mu') + theme_classic()
@@ -191,7 +191,7 @@ setMethod("plot_FDstatistics", "FDensemble", function(.Object) {
 
 setGeneric("plot_cor", function(.Object, filename='cor.pdf', ...) {standardGeneric("plot_cor")})
 
-setMethod("plot_cor", "FDensemble", function(.Object, filename='cor.pdf', class_flag='all', legend_flag=FALSE) {
+setMethod("plot_cor", "FiDEL", function(.Object, filename='cor.pdf', class_flag='all', legend_flag=FALSE) {
   if (length(.Object@actual_label) == 0) {
     colorder <- order(.Object@estimated_performance)
     colorder <- c(colorder, .Object@nmethods+1)
@@ -236,7 +236,7 @@ setMethod("plot_cor", "FDensemble", function(.Object, filename='cor.pdf', class_
 
 setGeneric("plot_ensemble", function(.Object, filename='ens.pdf', ...) {standardGeneric("plot_ensemble")})
 
-setMethod("plot_ensemble", "FDensemble", function(.Object, filename='ens.pdf', method='auc', alpha=0.95, amax=0) {
+setMethod("plot_ensemble", "FiDEL", function(.Object, filename='ens.pdf', method='auc', alpha=0.95, amax=0) {
   # prepare data
   method_list = c('auc', 'asof', 'correlation', 'random', 'invauc')
   if (!(method %in% method_list)) {
@@ -295,7 +295,7 @@ setMethod("plot_ensemble", "FDensemble", function(.Object, filename='ens.pdf', m
 
 setGeneric("plot_single", function(.Object, target, ...) {standardGeneric("plot_single")})
 
-setMethod("plot_single", "FDensemble", function(.Object, target, c, n=100, m=100) {
+setMethod("plot_single", "FiDEL", function(.Object, target, c, n=100, m=100) {
   if (missing(c)) { c <- 0 }
   if (c > .Object@nmethods) { c <- .Object@nmethods }
   if (c < 0) { c <- 0 }
@@ -326,13 +326,13 @@ setMethod("plot_single", "FDensemble", function(.Object, target, c, n=100, m=100
 
 setGeneric("plot_performance", function(.Object, ...) {standardGeneric("plot_performance")})
 
-setMethod("plot_performance", "FDensemble", function(.Object, nmethod_list=5:7, nsample=20, trendline=FALSE) {
+setMethod("plot_performance", "FiDEL", function(.Object, nmethod_list=5:7, nsample=20, trendline=FALSE) {
   df <- cal_partial_performance(.Object, nmethod_list=nmethod_list, nsample=nsample)
   df$nmethod <- as.factor(df$nmethod)
 
   x_all <- max(.Object@actual_performance)
   y_all <- .Object@ensemble_auc
-  y_final <- mean(y)
+  y_final <- mean(y_all)
   min_y <- min(c(df$Best_Indv, df$FiDEL, x_all, y_all))
   max_y <- max(c(df$Best_Indv, df$FiDEL, x_all, y_all))
 

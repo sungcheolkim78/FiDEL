@@ -8,94 +8,90 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(data.table)
+library(caret)
+library(FiDEL)
 ```
 
-## west nile virus prediction
+## Train data
 
-```{r cars}
-dirname <- 'data_west_nile_maxAUC_0.85'
-flist <- list.files(path=dirname, pattern='0.*.csv')
-auclist <- as.numeric(gsub(".csv", "", flist))
+```{r}
+train <- as.data.table(readr::read_csv('data/data-westnile.csv.bz2'))
+train$y <- as.factor(train$y)
+train <- train[, -c('X82', 'X84')]
 
-train <- fread(paste0(dirname, '/', 'train.csv'))
-y <- as.factor(train$WnvPresent)
-rho <- sum(y == 1)/length(y)
-
-predictions <- matrix(nrow = 116293, ncol=length(flist))
-
-i <- 1
-for (f in flist) {
-  tmp <- fread(paste0(dirname, '/', f))
-  predictions[ ,i] <- tmp[[2]]
-  i <- i + 1
-}
-
-dim(predictions)
+head(train)
 ```
 
 ```{r}
-head(predictions)
+table(train$y)
 ```
 
 ```{r}
-hist(predictions[, 1])
+folds <- createFolds(train$y, k=22, list = TRUE)
+traininglist <- lapply(folds, function(x) train[x, ])
+testing  <- traininglist[[22]]
+testingY <- to_label(testing$y, class1='Yes')
 ```
 
 ```{r}
-library(summa)
-ksumma <- summa::summa(predictions, "rank")
+model_list <- c('rda', 'svmLinear', 'svmRadial', 'pls', 'knn', 'earth', 'avNNet', 'mlp', 'nb', 'rf', 'rpart', 'ctree', 'gbm', 'bayesglm', 'glm', 'glmnet', 'simpls', 'nnet', 'dwdRadial', 'xgbTree', 'xgbLinear')
+# C5.0 - error on prediction
+t1 <- mtrainer(model_list, dataInfo = 'WestNile')
 ```
 
 ```{r}
-plot.scores(ksumma@estimated_rank, as.factor(ksumma@estimated_label))
+t1 <- train.mtrainer(t1, y~., traininglist, update=TRUE)
+```
+```{r}
+#t1 <- addmodel.mtrainer(t1, c('dwdRadial', 'xgbTree', 'xgbLinear'))
+```
+
+
+```{r}
+t1 <- predict.mtrainer(t1, newdata=testing)
+auclist <- apply(t1$predictions, 2, auc_rank, testingY)
 ```
 
 ```{r}
-fde1 <- fdensemble(predictions[,1:9])
+fde1 <- fde(t1$predictions)
+fde1 <- predict_performance(fde1, auclist, attr(testingY, 'rho'))
+```
+```{r}
+fde2 <- calculate_performance(fde1, testingY)
 ```
 
 ```{r}
-fde1 <- predict_performance(fde1, auclist[1:9], rho, alpha=1)
+plot_cor(fde1, legend_flag = T)
+```
+```{r}
+plot_cor(fde2, legend_flag=T)
 ```
 
 ```{r}
-idx <- order(fde1@estimated_rank)
-plot(fde1@estimated_rank[idx])
-lines(fde1@logit_matrix[idx,10], col='green')
-lines(fde1@logit_matrix[idx,9], col='red')
-lines(fde1@logit_matrix[idx,8], col='blue')
+plot_performance(fde2, nmethod_list=c(5), nsample=200)
 ```
 
 ```{r}
-plot.scores(fde1@estimated_rank, fde1@estimated_label)
+plot_performance_nmethods(fde2, nmethod_list=3:10, nsample=200)
 ```
 
 ```{r}
-table(fde1@estimated_label)
+plot_single(fde2, 'roc')
 ```
 
 ```{r}
-plot(fde1@estimated_rank, fde1@estimated_prob)
+plot_ensemble(fde2)
 ```
 
 ```{r}
-rmax <- max(ksumma@estimated_rank)
-rmin <- min(ksumma@estimated_rank)
-submit <- data.table(Id=seq(1,116293), WnvPresent=(ksumma@estimated_rank - rmin)/(rmax-rmin))
-fwrite(submit, file='submission.csv')
+plot_FDstatistics(fde2)
 ```
 
 ```{r}
-submit <- data.table(Id=seq(1,116293), WnvPresent=fde1@estimated_prob)
-fwrite(submit, file='submission.csv')
+#plot_single(fde1, 'score')
+store.mtrainer(t1, 'westnile_pre.RData')
+saveRDS(testingY, 'westnile_y.RData')
 ```
 
-```{r}
-plot_cor(fde1, class_flag='negative')
-```
-
-```{r}
-cor(fde1@rank_matrix)
-```
 
 
