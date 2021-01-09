@@ -20,7 +20,6 @@ library(ggpubr)
 get_fermi(0.8, 0.1, N=10000)
 ```
 
-
 ```{r}
 auclist <- (2:48)*0.01 + 0.5
 rholist <- (2:18)*0.05
@@ -42,23 +41,43 @@ res
 ```
 
 ```{r}
+auclist <- (2:48)*0.01 + 0.5
+rholist <- (2:18)*0.05
+N <-1000
+
+res1 <- data.table()
+
+for (a in auclist) {
+  for (r in rholist) {
+    temp <- get_fermi_root(a, r)
+    temp <- c(temp, a, r)
+    res1 <- cbind(res1, temp)
+  }
+}
+ 
+res1 <- data.table(t(res1))
+colnames(res1) <- c('beta', 'mu', 'rs', 'AUC', 'rho')
+res1
+```
+
+```{r}
 g1 <- ggplot(data=res) + geom_point(aes(x=AUC, y=mu, color=rho)) + theme_classic() + 
   xlab('AUC') + ylab(TeX('$\\mu/N$'))
-#ggsave('lambda_auc_l1.pdf', width=6)
+ggsave('results/dilog_lambda_auc_l1.pdf', width=6)
 g1
 ```
 
 ```{r}
 g2 <- ggplot(data=res) + geom_point(aes(x=AUC, y=beta, color=rho)) + theme_classic() +
   xlab('AUC') + ylab(TeX('$N \\beta$'))
-#ggsave('lambda_auc_l2.pdf', width=6)
+ggsave('results/dilog_lambda_auc_l2.pdf', width=6)
 g2
 ```
 
 ```{r}
 g3 <- ggplot(data=res) + geom_point(aes(x=AUC, y=rs, color=rho)) + theme_classic() +
   xlab('AUC') + ylab('R*/N')
-#ggsave('lambda_auc_rs.pdf', width=6)
+ggsave('results/dilog_lambda_auc_rs.pdf', width=6)
 g3
 ```
 
@@ -76,7 +95,7 @@ g5
 
 ```{r}
 g <- ggarrange(g2, g1, g5, g4, labels=c("A", "B", "C", "D"), ncol=2  , nrow=2)
-#ggsave("betamu_relation.pdf", width=8, height=6, dpi=300)
+ggsave("results/dilog_betamu_relation.pdf", width=8, height=6, dpi=300)
 g
 ```
 

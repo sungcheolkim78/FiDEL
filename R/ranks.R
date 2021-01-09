@@ -4,10 +4,13 @@
 #
 # version 1.0.0 - 2020/01/15
 # version 1.0.1 - 2020/04/13 - clean up
+# version 1.0.2 - 2021/01/08 - add new formular
 
 library(data.table)
 library(ggpubr)
 library(tictoc)
+library(gsl)
+library(stats)
 
 #' Calculate AUC using rank
 #'
@@ -68,7 +71,7 @@ build_curve <- function(scores, y, class1=NULL) {
   # smooth curves and calculate optimal threshold
   l1 <- loess(bac ~ rank, df, span=0.1)
   # calculate beta and mu based on AUC and prevalence
-  b <- get_fermi(auc0, attr(y, 'rho'))
+  b <- get_fermi_root(auc0, attr(y, 'rho'))
   ci_info <- var_auc_fermi(auc0, attr(y, 'rho'), N=N, method="integral")
 
   # register metrics
@@ -203,13 +206,48 @@ get_fermi <- function(auc, rho, N=1, resol=0.0001, method='beta') {
   else { return (c(l1=-temp$par[1]*temp$par[2], l2=temp$par[1]/N, rs=rs*N)) }
 }
 
+#' calculate beta, mu using normalized by N
+#' @param auc A value of AUC
+#' @param rho A value of prevalence
+#' @param N A number of samples, when N=1, the results are normalized by N
+#' @param resol A value for converting integral into summation
+#' @param method 'beta' for beta, mu 'lambda' for lambda1, lambda2
+#' @return in case of 'beta' - beta, mu, rstar
+#' in case of 'lambda' - lambda1, lambda2, rstar
+get_fermi_root <- function(auc, rho, N=1) {
+  froot <- function(beta, auc, rho) {
+    mu <- .5 - log(sinh(beta*(1-rho)*.5)/sinh(beta*rho*.5))/beta
+    part1 <- (dilog(-exp(-beta*(1-mu))) - dilog(-exp(beta*mu)) - beta*log(exp(-beta*(1-mu))+1))/(beta*beta)
+    part2 <- .5*rho + rho*(1-rho)*(.5 - auc)
+    part1 - part2
+  }
+
+  # calculate initial beta' and mu'
+  l <- lambda.appr(auc, N=1000, rho=rho)
+
+  # optimize cost function
+  initial <- c(l[['l2']]*1000, -l[['l1']]/(1000*l[['l2']]))
+  beta <- initial[1]
+  #print(initial)
+
+  #x <- seq(0.1, 10, by=0.1)
+  #y <- froot(x, auc, rho)
+  #plot(x, y)
+
+  beta0 <- uniroot(froot, auc=auc, rho=rho, interval=c(0.05, beta*5.))
+  mu0 <- .5 - log(sinh(beta0$root*(1-rho)*.5)/sinh(beta0$root*rho*.5))/beta0$root
+  rs0 <- 1/beta0$root * log((1 - rho)/rho) + mu0
+
+  return (c(beta=beta0$root/N, mu=mu0*N, rs=rs0*N))
+}
+
 # create beta mu matrix with auclist, rholist
 create_beta_mu <- function(auclist, rholist, N=1000) {
   res <- data.table()
 
   for (a in auclist) {
     for (r in rholist) {
-      temp <- get_fermi(a, r, N=1)
+      temp <- get_fermi_root(a, r, N=1)
       temp <- c(temp, a, r)
       res <- cbind(res, temp)
     }

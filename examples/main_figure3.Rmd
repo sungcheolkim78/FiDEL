@@ -68,6 +68,6 @@ gb2
 ```{r}
 library(ggpubr)
 g <- ggarrange(g1, gb2, labels=c('A', 'B'), ncol=2, nrow=1)
-ggsave("results/Figure3.pdf", width=7, height=3.5)
+ggsave("results/Figure3-dilog.pdf", width=7, height=3.5)
 print(g)
 ```

@@ -17,7 +17,7 @@ library(FiDEL)
 ```{r}
 train <- as.data.table(readr::read_csv('data/data-westnile.csv.bz2'))
 train$y <- as.factor(train$y)
-train <- train[, -c('X82', 'X84')]
+train <- train[, -c('X82', 'X84', 'X12', 'X24', 'X36', 'X60', 'X72', 'X83')]
 
 head(train)
 ```
@@ -27,6 +27,7 @@ table(train$y)
 ```
 
 ```{r}
+set.seed(131)
 folds <- createFolds(train$y, k=22, list = TRUE)
 traininglist <- lapply(folds, function(x) train[x, ])
 testing  <- traininglist[[22]]
@@ -36,14 +37,14 @@ testingY <- to_label(testing$y, class1='Yes')
 ```{r}
 model_list <- c('rda', 'svmLinear', 'svmRadial', 'pls', 'knn', 'earth', 'avNNet', 'mlp', 'nb', 'rf', 'rpart', 'ctree', 'gbm', 'bayesglm', 'glm', 'glmnet', 'simpls', 'nnet', 'dwdRadial', 'xgbTree', 'xgbLinear')
 # C5.0 - error on prediction
-t1 <- mtrainer(model_list, dataInfo = 'WestNile')
+t1 <- mtrainer(c('rpart', 'knn'), dataInfo = 'WestNile')
 ```
 
 ```{r}
-t1 <- train.mtrainer(t1, y~., traininglist, update=TRUE)
+t1 <- train.mtrainer(t1, y~., traininglist, update=FALSE)
 ```
 ```{r}
-#t1 <- addmodel.mtrainer(t1, c('dwdRadial', 'xgbTree', 'xgbLinear'))
+t1 <- addmodel.mtrainer(t1, c('simpls', 'gbm'))
 ```
 
 
