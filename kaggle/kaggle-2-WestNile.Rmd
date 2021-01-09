@@ -17,7 +17,7 @@ library(FiDEL)
 ```{r}
 train <- as.data.table(readr::read_csv('data/data-westnile.csv.bz2'))
 train$y <- as.factor(train$y)
-train <- train[, -c('X82', 'X84', 'X12', 'X24', 'X36', 'X60', 'X72', 'X83')]
+train <- train[, -c('X41', 'X48', 'X82', 'X84', 'X12', 'X24', 'X36', 'X60', 'X72', 'X83')]
 
 head(train)
 ```
@@ -27,7 +27,7 @@ table(train$y)
 ```
 
 ```{r}
-set.seed(131)
+set.seed(200)
 folds <- createFolds(train$y, k=22, list = TRUE)
 traininglist <- lapply(folds, function(x) train[x, ])
 testing  <- traininglist[[22]]
@@ -37,12 +37,14 @@ testingY <- to_label(testing$y, class1='Yes')
 ```{r}
 model_list <- c('rda', 'svmLinear', 'svmRadial', 'pls', 'knn', 'earth', 'avNNet', 'mlp', 'nb', 'rf', 'rpart', 'ctree', 'gbm', 'bayesglm', 'glm', 'glmnet', 'simpls', 'nnet', 'dwdRadial', 'xgbTree', 'xgbLinear')
 # C5.0 - error on prediction
-t1 <- mtrainer(c('rpart', 'knn'), dataInfo = 'WestNile')
+#t1 <- mtrainer(c('rpart', 'knn', 'simpls', 'pls'), dataInfo = 'WestNile')
+t1 <- mtrainer(model_list, dataInfo = 'WestNile')
 ```
 
 ```{r}
-t1 <- train.mtrainer(t1, y~., traininglist, update=FALSE)
+t1 <- train.mtrainer(t1, y~., traininglist, update=TRUE)
 ```
+
 ```{r}
 t1 <- addmodel.mtrainer(t1, c('simpls', 'gbm'))
 ```
@@ -57,23 +59,24 @@ auclist <- apply(t1$predictions, 2, auc_rank, testingY)
 fde1 <- fde(t1$predictions)
 fde1 <- predict_performance(fde1, auclist, attr(testingY, 'rho'))
 ```
+
 ```{r}
 fde2 <- calculate_performance(fde1, testingY)
 ```
 
 ```{r}
-plot_cor(fde1, legend_flag = T)
+plot_cor(fde1, legend_flag = T, filename='results/WNV_cor_fde1.pdf')
 ```
 ```{r}
-plot_cor(fde2, legend_flag=T)
-```
-
-```{r}
-plot_performance(fde2, nmethod_list=c(5), nsample=200)
+plot_cor(fde2, legend_flag=T, filename='results/WNV_cor_fde2.pdf')
 ```
 
 ```{r}
-plot_performance_nmethods(fde2, nmethod_list=3:10, nsample=200)
+plot_performance(fde2, nmethod_list=c(3, 5, 7), nsample=200, filename='results/WNV_perf_fde2.pdf')
+```
+
+```{r}
+plot_performance_nmethods(fde2, nmethod_list=3:10, nsample=200, filename='results/WNV_perf_nmethod_fde2.pdf')
 ```
 
 ```{r}
@@ -81,7 +84,7 @@ plot_single(fde2, 'roc')
 ```
 
 ```{r}
-plot_ensemble(fde2)
+plot_ensemble(fde2, filename='results/WNV_ensemble_fde2.pdf')
 ```
 
 ```{r}

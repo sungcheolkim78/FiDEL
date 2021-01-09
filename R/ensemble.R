@@ -326,7 +326,7 @@ setMethod("plot_single", "FiDEL", function(.Object, target, c, n=100, m=100) {
 
 setGeneric("plot_performance", function(.Object, ...) {standardGeneric("plot_performance")})
 
-setMethod("plot_performance", "FiDEL", function(.Object, nmethod_list=5:7, nsample=20, trendline=FALSE) {
+setMethod("plot_performance", "FiDEL", function(.Object, nmethod_list=5:7, nsample=20, trendline=FALSE, filename='FiDEL_perf.pdf') {
   df <- cal_partial_performance(.Object, nmethod_list=nmethod_list, nsample=nsample)
   df$nmethod <- as.factor(df$nmethod)
 
@@ -336,21 +336,21 @@ setMethod("plot_performance", "FiDEL", function(.Object, nmethod_list=5:7, nsamp
   min_y <- min(c(df$Best_Indv, df$FiDEL, x_all, y_all))
   max_y <- max(c(df$Best_Indv, df$FiDEL, x_all, y_all))
 
-  g <- ggplot(df, aes(x=Best_Indv, y=FiDEL, shape=nmethod, color=nmethod)) + theme_classic() +
-    geom_point() +
+  g <- ggplot(df, aes(x=Best_Indv, y=FiDEL)) + theme_classic() +
+    geom_point() + facet_wrap(~nmethod) +
     xlab('Best AUC from random sampled methods') + xlim(c(min_y, max_y)) +
     ylab('FiDEL AUC') + ylim(c(min_y, max_y)) +
-    geom_abline(slope=1, linetype='dashed', alpha=0.7) +
-    annotate(geom="curve", x=x_all, y=y_all, xend=x_all, yend=x_all, curvature=-.3, arrow = arrow(length = unit(2, "mm"))) +
-    annotate(geom="text", x=max_y, y=x_all, label='All', hjust=0)
+    geom_abline(slope=1, linetype='dashed', alpha=0.7)
+    #annotate(geom="curve", x=x_all, y=y_all, xend=x_all, yend=x_all, curvature=-.3, arrow = arrow(length = unit(2, "mm"))) +
+    #annotate(geom="text", x=max_y, y=x_all, label='All', hjust=0)
   if (trendline)
     g <- g + geom_smooth(method=loess)
 
-  ggsave('FiDEL_perf.pdf', width=6, height=4)
+  ggsave(filename, width=11, height=4)
   print(g)
 })
 
-plot_performance_nmethods <- function(.Object, nmethod_list=5:7, nsample=20, conf.interval=.95) {
+plot_performance_nmethods <- function(.Object, nmethod_list=5:7, nsample=20, conf.interval=.95, filename='FiDEL_perf_nmethod.pdf') {
   df <- cal_partial_performance(.Object, nmethod_list=nmethod_list, nsample=nsample)
   df <- melt(df, id.vars = 'nmethod', variable.name='method', value.name='AUC')
 
@@ -368,10 +368,10 @@ plot_performance_nmethods <- function(.Object, nmethod_list=5:7, nsample=20, con
     geom_errorbar(width=.1, aes(ymin=Performance-ci, ymax=Performance+ci)) +
     geom_point(shape=tmp$shape, size=2, fill='white') +
     xlab('Number of methods') +
-    ylab('Ensemble performance') +
+    ylab('AUC') +
     theme_classic()
 
-  ggsave('FiDEL_perf_nmethod.pdf', width=6, height=4)
+  ggsave(filename, width=6, height=4)
   print(g)
 }
 

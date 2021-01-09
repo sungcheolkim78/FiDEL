@@ -8,139 +8,151 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(data.table)
+library(dplyr)
 ```
 
 ## Train data
 
 ```{r}
-train <- as.data.table(readr::read_csv('data/data-springleaf.csv'))
+# data preprocessing
+
+set.seed(200)
+train <- as.data.table(readr::read_csv('data/data-springleaf.csv.bz2'))
 train$y <- ifelse(train$target == 1, 'Yes', 'No')
 train$y <- as.factor(train$y)
-train <- train[, -c('X1', 'ID', 'target', 'VAR_1427', 'VAR_0226', 'VAR_0230', 'VAR_0236')]
+train <- train[, -c('ID', 'target1', 'VAR_1427', 'VAR_0847', 'VAR_1428')]
 
+not_any_na <- function(x) all(!is.na(x))
+train <- train %>% 
+  select(where(not_any_na)) 
+
+#train <- train[, c(sample(ncol(train)-1, 300), ncol(train)), with=F]
 #head(train)
 ```
 
 ```{r}
-train[is.na(train)] <- -1
-#test[is.na(test)]   <- -1
+# clean up train data
+# remove columns with missing data (NA, 99999999X, 999X, 99X)
+
+feat_names <- colnames(train[,-c('y')])
+rm_names <- c()
+
+count <- 0
+for (f in feat_names) {
+  coldata <- train[[f]]
+  if (any(coldata < 0)) {
+    #print(paste0(f, '-', min(coldata)))
+    count <- count + 1
+    rm_names <- c(rm_names, f)
+    next
+  }
+  if (any(coldata > 999999990)) {
+    #print(paste0(f, '-', max(coldata)))
+    count <- count + 1
+    rm_names <- c(rm_names, f)
+    next
+  }
+  if (sum(coldata > 9990 & coldata < 9999) > 20) {
+    #print(paste0(f, '-', max(coldata)))
+    count <- count + 1
+    rm_names <- c(rm_names, f)
+    next
+  }
+  if (sum(coldata > 990 & coldata < 999) > 20) {
+    #print(paste0(f, '-', max(coldata)))
+    count <- count + 1
+    rm_names <- c(rm_names, f)
+    next
+  }
+  if (sum(coldata > 90 & coldata < 99) > 20) {
+    #print(paste0(f, '-', max(coldata)))
+    count <- count + 1
+    rm_names <- c(rm_names, f)
+    next
+  }
+}
+
+train_new <- train[,-rm_names, with=F]
+```
+
+
+```{r}
+table(train_new$y)
 ```
 
 ```{r}
-table(train$y)
+rho <- 5221/(16779+5221)
+rho
 ```
 
+
 ```{r}
-folds <- createFolds(train$y, k=22, list = TRUE)
-traininglist <- lapply(folds, function(x) train[x, ])
+set.seed(200)
+
+folds <- createFolds(train_new$y, k=22, list = TRUE)
+traininglist <- lapply(folds, function(x) train_new[x, ])
 #training <- train[ inTraining0,]
 testing  <- traininglist[[22]]
 testingY <- to_label(testing$y, class1='Yes')
 ```
 
 ```{r}
-model_list <- c('pls', 'rda', 'svmLinear', 'svmRadial', 'knn', 'earth', 'avNNet', 'mlp', 'nb', 'rf', 'rpart', 'ctree', 'C5.0', 'bayesglm', 'glm', 'glmnet', 'simpls', 'dwdRadial', 'xgbTree', 'xgbLinear', 'nnet')
+model_list <- c('pls', 'rda', 'svmLinear', 'svmRadial', 'knn', 'earth', 'mlp', 'rf', 'gbm', 'ctree', 'C5.0', 'bayesglm', 'glm', 'glmnet', 'simpls', 'dwdRadial', 'xgbTree', 'xgbLinear', 'nnet')
 t1 <- mtrainer(model_list, dataInfo = 'SpringLeaf')
+# rpart is not working -> add gbm
+# avNNet, nb is not working
+#t1 <- mtrainer(c('knn', 'simpls', 'pls'), dataInfo = 'SpringLeaf')
 ```
 
 ```{r}
-t1 <- train.mtrainer(t1, y~., traininglist, update=TRUE)
+t1 <- train.mtrainer(t1, y~., traininglist, update=F)
 ```
 
 ```{r}
 t1 <- predict.mtrainer(t1, newdata=testing)
 auclist <- apply(t1$predictions, 2, auc_rank, testingY)
+```
 
+```{r}
 fde1 <- fde(t1$predictions)
 fde1 <- predict_performance(fde1, auclist, attr(testingY, 'rho'))
 ```
 
-## west nile virus prediction
-
-```{r cars}
-dirname <- 'data_west_nile_maxAUC_0.85'
-flist <- list.files(path=dirname, pattern='0.*.csv')
-auclist <- as.numeric(gsub(".csv", "", flist))
-
-train <- fread(paste0(dirname, '/', 'train.csv'))
-y <- as.factor(train$WnvPresent)
-rho <- sum(y == 1)/length(y)
-
-predictions <- matrix(nrow = 116293, ncol=length(flist))
-
-i <- 1
-for (f in flist) {
-  tmp <- fread(paste0(dirname, '/', f))
-  predictions[ ,i] <- tmp[[2]]
-  i <- i + 1
-}
-
-dim(predictions)
+```{r}
+fde2 <- calculate_performance(fde1, testingY)
 ```
 
 ```{r}
-head(predictions)
+plot_cor(fde1, legend_flag = T, filename='results/SLM_cor_fde1.pdf')
+```
+```{r}
+plot_cor(fde2, legend_flag=T, filename='results/SLM_cor_fde2.pdf')
 ```
 
 ```{r}
-hist(predictions[, 1])
+plot_performance(fde2, nmethod_list=c(3, 5, 7), nsample=200, filename='results/SLM_perf_fde2.pdf')
 ```
 
 ```{r}
-library(summa)
-ksumma <- summa::summa(predictions, "rank")
+plot_performance_nmethods(fde2, nmethod_list=3:10, nsample=200, filename='results/SLM_perf_nmethod_fde2.pdf')
 ```
 
 ```{r}
-plot.scores(ksumma@estimated_rank, as.factor(ksumma@estimated_label))
+plot_single(fde2, 'roc')
 ```
 
 ```{r}
-fde1 <- fdensemble(predictions[,1:9])
+plot_ensemble(fde2, filename='results/SLM_ensemble_fde2.pdf')
 ```
 
 ```{r}
-fde1 <- predict_performance(fde1, auclist[1:9], rho, alpha=1)
+plot_FDstatistics(fde2)
 ```
 
 ```{r}
-idx <- order(fde1@estimated_rank)
-plot(fde1@estimated_rank[idx])
-lines(fde1@logit_matrix[idx,10], col='green')
-lines(fde1@logit_matrix[idx,9], col='red')
-lines(fde1@logit_matrix[idx,8], col='blue')
-```
-
-```{r}
-plot.scores(fde1@estimated_rank, fde1@estimated_label)
-```
-
-```{r}
-table(fde1@estimated_label)
-```
-
-```{r}
-plot(fde1@estimated_rank, fde1@estimated_prob)
-```
-
-```{r}
-rmax <- max(ksumma@estimated_rank)
-rmin <- min(ksumma@estimated_rank)
-submit <- data.table(Id=seq(1,116293), WnvPresent=(ksumma@estimated_rank - rmin)/(rmax-rmin))
-fwrite(submit, file='submission.csv')
-```
-
-```{r}
-submit <- data.table(Id=seq(1,116293), WnvPresent=fde1@estimated_prob)
-fwrite(submit, file='submission.csv')
-```
-
-```{r}
-plot_cor(fde1, class_flag='negative')
-```
-
-```{r}
-cor(fde1@rank_matrix)
+#plot_single(fde1, 'score')
+store.mtrainer(t1, 'springleaf_pre.RData')
+saveRDS(testingY, 'springleaf_y.RData')
 ```
 
 

@@ -1,0 +1,317 @@
+---
+title: "kaggle-1-danzel"
+author: "sungcheol kim"
+date: "4/10/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+set.seed(15)
+
+library(data.table)
+library(tidyverse)
+library(caret)
+library(tensorflow)
+library(keras)
+
+n_folds <- 50
+```
+
+## R Markdown
+
+```{r}
+#-------------------- load data
+dat <- fread("./input/cat-in-the-dat-ii/train.csv") %>% 
+  mutate(set = "tr") %>% 
+  bind_rows(  fread("./input/cat-in-the-dat-ii/test.csv") %>% mutate(set = "te") )
+
+non_feats <- c("id","target","set")
+feats <- setdiff(colnames(dat), non_feats)
+```
+
+```{r}
+library(skimr)
+skim(dat)
+```
+
+## Including Plots
+
+```{r}
+#-------------------- binarize NAs
+dat[dat==""] <- NA
+dat[dat==" "] <- NA
+
+create_na_col <- function(feat){
+  # feat <- "bin_0"
+  x_na <- is.na(dat[[feat]])
+  if (sum(x_na)>0){
+    x_na <- tibble(as.numeric(x_na))
+    colnames(x_na) <- paste0(feat,"_binary_na")
+    return(x_na)
+  }
+}
+
+dat_na <- purrr::map(.x = feats, create_na_col) %>% bind_cols
+dat_num <- dat_na; rm(dat_na)
+```
+
+```{r}
+skim(dat_num)
+```
+
+```{r}
+head(dat_num)
+```
+
+```{r}
+#-------------------- label encoder
+label_encoder <- list()
+for(feat in feats){
+  encoder_fit <- CatEncoders::LabelEncoder.fit(dat[[feat]])
+  label_encoder[[feat]] <- encoder_fit
+  dat[[feat]] <- CatEncoders::transform(enc = encoder_fit, dat[[feat]])
+}
+```
+
+```{r}
+skim(dat)
+```
+
+```{r}
+#-------------------- create embedding info
+cat_feature_size <- dat %>% 
+  select(feats) %>% 
+  apply(MARGIN = 2, FUN = function(x) length(unique(x)) + 1) %>% 
+  as.numeric()
+emb_info <- tibble(feature = feats, size = cat_feature_size)
+num_shape <- ncol(dat_num)
+
+create_embeddings <- function(x_input, feature_size, feature_name) {
+  k_latent <- min(50, feature_size %/% 2 )
+  layer <- x_input %>% 
+    keras::layer_embedding(input_dim = feature_size, 
+                           input_length = 1, 
+                           output_dim = k_latent, 
+                           embeddings_regularizer = NULL, 
+                           name = paste0(feature_name, "_embedding")) %>%
+    keras::layer_spatial_dropout_1d(rate = 0.3) %>%
+    keras::layer_flatten(name = paste0(feature_name, "_flatten"))
+  
+  return(layer)
+}
+```
+
+```{r}
+#-------------------- define custom AUC keras metric                                                    
+fastAUC <- function(probs, class) {
+  x <- probs
+  y <- class
+  x1 = x[y==1]; n1 = length(x1); 
+  x2 = x[y==0]; n2 = length(x2);
+  r = rank(c(x1,x2))  
+  auc = (sum(r[1:n1]) - n1*(n1+1)/2) / n1 / n2
+  return(auc)
+}
+
+np <- import("numpy", convert = F)
+auc_metricR <- function(y_true, y_pred) {
+  
+  auc_r <- function(y_true, y_pred){
+    out <- fastAUC(y_pred, y_true)
+    return(np$double(out))
+  }
+  
+  return(tensorflow::tf$numpy_function(func = auc_r,inp = c(y_true,y_pred), Tout = tensorflow::tf$double))
+}
+
+custom_auc <- keras::custom_metric(name = "custom_auc", metric_fn = auc_metricR)
+```
+
+```{r}
+#-------------------- keras model                                                  
+get_model <- function(emb_feat_info = emb_info, lr = 0.003, num_shape, metric = "auc"){
+  
+  numerical_layer_input <- keras::layer_input(shape = num_shape, name = "numrical_input")
+  input_xx <- emb_feat_info$feature %>% purrr::map(~keras::layer_input(shape = c(1), name = paste0(.x, "_input")))
+  feature_embeddings <-
+    list(input_layers = input_xx, feature_size = as.list(emb_feat_info$size), feature_name = as.list(emb_feat_info$feature)) %>%
+    purrr::pmap(~create_embeddings(..1, ..2, feature_name = paste0(..3, "_factor")))
+  embeddings_length <- length(feature_embeddings)
+  feature_embeddings[[embeddings_length + 1]] <- numerical_layer_input
+  input_xx[[embeddings_length + 1]] <- numerical_layer_input
+  
+  xx <- keras::layer_concatenate(inputs = feature_embeddings[1:(length(feature_embeddings)-1)], name = "embeddings_concatenation")
+    
+  xx <- xx %>% keras::layer_dense(units = 512, activation  = "relu")#, kernel_regularizer = keras::regularizer_l2(0.001))
+  xx <- xx %>% keras::layer_batch_normalization()
+  xx <- xx %>% keras::layer_dropout(rate = .3)
+  
+  xx <- list(xx,feature_embeddings[[length(feature_embeddings)]]) %>% 
+    keras::layer_concatenate() %>%
+    keras::layer_dense(units = 256, activation  = "relu")#, kernel_regularizer = keras::regularizer_l2(0.0001))
+  xx <- xx %>% keras::layer_batch_normalization()
+  xx <- xx %>% keras::layer_dropout(rate = .2)
+  
+  output <- xx %>% 
+    keras::layer_dense(units = 1, activation = "sigmoid")
+  
+  model <- keras::keras_model(inputs = input_xx, outputs = output)
+  
+  optimizer <- keras::optimizer_nadam(lr = lr)
+  
+  if(metric == "auc"){
+    model %>% keras::compile(loss = "binary_crossentropy", optimizer = optimizer, metrics = custom_auc)
+  } else{
+    model %>% keras::compile(loss = "binary_crossentropy", optimizer = optimizer, metrics = "binary_accuracy")
+  }
+
+  return(model)
+}
+```
+
+```{r}
+#-------------------- do folds                                                            
+set.seed(27)
+val_ind <- caret::createFolds(y = dat[dat$set == "tr",]$target, k = n_folds)
+```
+
+```{r}
+#-------------------- reshape data          
+create_feature_size <- function(var, data) {
+  # print(sprintf("doing emb: %s ", var))
+  return(as.matrix(data[[var]]))
+}
+
+prep_emb_features <- function(x, feats){
+  
+  vars <- feats
+  data_emb <- list(var = as.list(vars)) %>%
+    purrr::pmap(~create_feature_size(..1, x %>% select(vars))) %>%
+    purrr::set_names(nm = paste0(vars,"_input"))
+  
+  data_emb <- as.list(data_emb)
+}
+
+tri <- 1:nrow(dat[dat$set == "tr",])
+y <- dat[tri,]$target
+
+tr_emb <- prep_emb_features(dat[tri,], feats)
+tr_emb[[length(tr_emb)+1]] <- as.matrix(dat_num[tri,])
+names(tr_emb) <- NULL
+
+te_emb <- prep_emb_features(dat[-tri,], feats)
+te_emb[[length(te_emb)+1]] <- as.matrix(dat_num[-tri,])
+names(te_emb) <- NULL
+
+rm(dat, dat_num);gc()
+```
+
+```{r}
+Learning_rate_l <- 3e-5
+Learning_rate_h <- 1e-3
+
+#-------------------- train                                                              
+p_train <- list()
+p_test <- list()
+score_train <- vector()
+score_test <- vector()
+for(f in 1:length(val_ind)){
+  
+  lr_base <- Learning_rate_h
+  model <- get_model(emb_feat_info = emb_info, lr = lr_base, num_shape = num_shape, metric = "accuracy")
+ 
+  bs <- 512*2
+  n_epochs <- 100
+  
+  idx_val <- val_ind[[f]]
+  idx_tr <- setdiff(tri, idx_val)
+  
+  val_boolean <- tri %in% idx_val
+  tr_boolean <- tri %in% idx_tr
+  
+  tr <- lapply(tr_emb, subset, tr_boolean)
+  val <- lapply(tr_emb, subset, val_boolean)
+  
+  y_tr <- y[idx_tr]
+  y_val <- y[idx_val]
+  
+  dim(tr[[1]])
+  length(y_tr)
+  
+  dim(val[[1]])
+  length(y_val)
+  
+  auc_score_val <- R6::R6Class("auc_score",
+                               inherit = KerasCallback,
+                               
+                               public = list(
+                                 
+                                 val = NA,
+                                 interval = NA,
+                                 auc = NULL,
+                                 
+                                 initialize = function(val, interval = 1) {
+                                   self$val <- val
+                                   self$interval <- interval
+                                 },
+                                 
+                                 on_epoch_end = function(epoch, logs) {
+                                   if (epoch %% self$interval == 0) {
+                                     y_pred <- keras:::predict.keras.engine.training.Model(self$model,self$val[[1]],batch_size = bs)
+                                     score <- fastAUC(probs = y_pred, class = self$val[[2]])
+                                     cat("val auc score on epoch", epoch+1, ":", score, "\n")
+                                     self$auc <- c(self$auc, score)
+                                   }
+                                 }
+                               ))
+  
+  auc_score_c <- auc_score_val$new(list(val, y_val), 1)
+  
+  history <- model %>% keras::fit(
+    tr,
+    y_tr,
+    batch_size = bs,
+    validation_data = list(val, y_val),
+    callbacks = list(
+      auc_score_c,
+      keras::callback_reduce_lr_on_plateau(monitor = "val_loss", factor = .5, patience = 3, min_lr = Learning_rate_l, mode = "min", verbose = 1),
+      keras::callback_early_stopping(monitor = "val_loss", patience = 5, restore_best_weights = T, min_delta = 0.001)
+      #keras::callback_reduce_lr_on_plateau(monitor = "val_custom_auc", factor = .5, patience = 3, min_lr = Learning_rate_l, mode = "max", verbose = 1),
+      #keras::callback_early_stopping(monitor = "val_custom_auc", patience = 5, restore_best_weights = T, min_delta = 0.001, mode = "max") 
+    ),
+    epochs = n_epochs,
+    shuffle = T,
+    view_metrics = T,
+    verbose = 2
+  )
+  
+  preds_val <- model %>% keras:::predict.keras.engine.training.Model(val, batch_size = bs)
+  score_val <- fastAUC(preds_val, y_val)
+  
+  p_train[[f]] <- tibble(row = idx_val, preds = preds_val)
+  score_train <- c(score_train, score_val)
+  
+  preds_te <- model %>% keras:::predict.keras.engine.training.Model(te_emb, batch_size = bs)
+  
+  p_test[[f]] <- tibble(preds = preds_te) %>% mutate(id = row_number())
+ 
+  cat("Fold", f,"::::::::::: val score:",score_val, "\n")
+  rm(model);k_clear_session();gc()
+}
+```
+
+```{r}
+cat("mean(auc):", mean(score_train),"\n")
+
+p_out <- bind_rows(p_test) %>% group_by(id) %>% summarise(preds = mean(preds)) %>% arrange(id)
+
+sub <- fread("./input/cat-in-the-dat-ii/sample_submission.csv")
+sub <- sub %>% mutate(target = p_out$preds)
+summary(sub$target)
+
+head(sub)
+
+write_csv(x = sub, path = "submission.csv")
+```
+
