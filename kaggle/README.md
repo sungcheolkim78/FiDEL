@@ -114,6 +114,7 @@ Create plot with number of selected methods and iteration number.
 ```{r}
 plot_performance(fde2, nmethod_list=c(3, 5, 7), nsample=200, filename='results/SLM_perf_fde2.pdf')
 ```
+![](results/SLM_perf_fde2.pdf)
 
 Create plot with different number of selected methods and iteration number.
 ```{r}
