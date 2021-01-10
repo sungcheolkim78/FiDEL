@@ -78,15 +78,20 @@ testingY <- to_label(testing$y, class1='Yes')
 
 # Training the models
 
+Select model names and create multi-trainer (mtrainer) object.
 ```
-model_list <- c('rmda', 'rotationForest', 'pls', 'rda', 'svmLinear', 'svmRadial', 'knn', 'earth', 'mlp', 'rf', 'gbm', 'ctree', 'C5.0', 'bayesglm', 'glm', 'glmnet', 'simpls', 'dwdRadial', 'xgbTree', 'xgbLinear', 'nnet')
+model_list <- c('rmda', 'rotationForest', 'pls', 'rda', 'svmLinear', 'svmRadial', 'knn', 'earth', 
+          'mlp', 'rf', 'gbm', 'ctree', 'C5.0', 'bayesglm', 'glm', 'glmnet', 'simpls', 'dwdRadial', 'xgbTree', 
+          'xgbLinear', 'nnet')
 t1 <- mtrainer(model_list, dataInfo = 'SpringLeaf')
 ```
 
+Train all algorithms with list of group data sets.
 ```{r}
 t1 <- train.mtrainer(t1, y~., traininglist, update=T)
 ```
 
+Create the prediction with all included methods and AUC list.
 ```{r}
 t1 <- predict.mtrainer(t1, newdata=testing)
 auclist <- apply(t1$predictions, 2, auc_rank, testingY)
@@ -105,10 +110,12 @@ With known labels,
 fde2 <- calculate_performance(fde1, testingY)
 ```
 
+Create plot with number of selected methods and iteration number.
 ```{r}
 plot_performance(fde2, nmethod_list=c(3, 5, 7), nsample=200, filename='results/SLM_perf_fde2.pdf')
 ```
 
+Create plot with different number of selected methods and iteration number.
 ```{r}
 plot_performance_nmethods(fde2, nmethod_list=3:10, nsample=200, filename='results/SLM_perf_nmethod_fde2.pdf')
 ```
