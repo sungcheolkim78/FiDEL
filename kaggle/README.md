@@ -128,11 +128,17 @@ fde2 <- calculate_performance(fde1, testingY)
 
 Create plot with number of selected methods and iteration number.
 ```{r}
-plot_performance(fde2, nmethod_list=c(3, 5, 7), nsample=200, filename='results/SLM_perf_fde2.pdf')
+g1 <- plot_performance(fde2, nmethod_list=c(3, 5, 7), nsample=200, filename='results/SLM_perf_fde2.pdf')
 ```
-![](results/SLM_perf_fde2.pdf)
 
 Create plot with different number of selected methods and iteration number.
 ```{r}
-plot_performance_nmethods(fde2, nmethod_list=3:10, nsample=200, filename='results/SLM_perf_nmethod_fde2.pdf')
+g2 <-plot_performance_nmethods(fde2, nmethod_list=3:10, nsample=200, method='SE', filename='results/SLM_perf_nmethod_fde2.pdf')
+```
+
+```{r}
+library(ggpubr)
+g <- ggarrange(g1, g2, labels=c('A', 'B'), ncol=2, nrow=1, widths = c(2.7,1))
+ggsave("results/Figure4a_SE.pdf", width=15, height=3.8)
+g
 ```
