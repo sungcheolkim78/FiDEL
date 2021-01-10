@@ -9,6 +9,22 @@ In this folder, the examples of using FiDEL package for the Kaggle competition a
 - You can find the jupyter notebook for the preprocessing in `kaggle-2-WestNile-data-prep.ipynb`
 - The final dataset is saved as `data/data-westnile.csv.bz2`
 
+Load data and remove zero variance columns
+```{r}
+train <- as.data.table(readr::read_csv('data/data-westnile.csv.bz2'))
+train$y <- as.factor(train$y)
+train <- train[, -c('X41', 'X48', 'X82', 'X84', 'X12', 'X24', 'X36', 'X60', 'X72', 'X83')]
+```
+
+Divide data set with 22 groups
+```{r}
+set.seed(200)
+folds <- createFolds(train$y, k=22, list = TRUE)
+traininglist <- lapply(folds, function(x) train[x, ])
+testing  <- traininglist[[22]]
+testingY <- to_label(testing$y, class1='Yes')
+```
+
 ## Springleaf Marketing Response
 
 - You can find the jupyter notebook for the preprocessing in `kaggle-4-Springleaf-data-prep.ipynb`
