@@ -9,6 +9,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(data.table)
 library(dplyr)
+library(devtools)
+load_all()
 ```
 
 ## Train data
@@ -20,13 +22,12 @@ set.seed(200)
 train <- as.data.table(readr::read_csv('data/data-springleaf.csv.bz2'))
 train$y <- ifelse(train$target == 1, 'Yes', 'No')
 train$y <- as.factor(train$y)
-train <- train[, -c('ID', 'target1', 'VAR_1427', 'VAR_0847', 'VAR_1428')]
+train <- train[, -c('ID', 'target1', 'VAR_1427', 'VAR_0847', 'VAR_1428', 'VAR0924')]
 
 not_any_na <- function(x) all(!is.na(x))
 train <- train %>% 
   select(where(not_any_na)) 
 
-#train <- train[, c(sample(ncol(train)-1, 300), ncol(train)), with=F]
 #head(train)
 ```
 
@@ -91,16 +92,17 @@ set.seed(200)
 
 folds <- createFolds(train_new$y, k=22, list = TRUE)
 traininglist <- lapply(folds, function(x) train_new[x, ])
-#training <- train[ inTraining0,]
+
 testing  <- traininglist[[22]]
 testingY <- to_label(testing$y, class1='Yes')
 ```
 
 ```{r}
-model_list <- c('pls', 'rda', 'svmLinear', 'svmRadial', 'knn', 'earth', 'mlp', 'rf', 'gbm', 'ctree', 'C5.0', 'bayesglm', 'glm', 'glmnet', 'simpls', 'dwdRadial', 'xgbTree', 'xgbLinear', 'nnet')
+model_list <- c('rmda', 'pls', 'rda', 'svmLinear', 'svmRadial', 'knn', 'earth', 'mlp', 'rf', 'gbm', 'ctree', 'C5.0', 'bayesglm', 'glm', 'glmnet', 'simpls', 'dwdRadial', 'xgbTree', 'xgbLinear', 'nnet')
 t1 <- mtrainer(model_list, dataInfo = 'SpringLeaf')
+
 # rpart is not working -> add gbm
-# avNNet, nb is not working
+# avNNet, nb, rotationForest is not working
 #t1 <- mtrainer(c('knn', 'simpls', 'pls'), dataInfo = 'SpringLeaf')
 ```
 
