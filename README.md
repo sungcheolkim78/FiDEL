@@ -133,3 +133,4 @@ ggsave("results/Figure3.pdf", width=7, height=3.5)
 
 ### Figure 4 in PNAS
 
+This figure needs multiple steps of the data preparation and training models. We prepared the detailed explanations in `README.md` inside the `kaggle` folder.
