@@ -347,11 +347,11 @@ setMethod("plot_performance", "FiDEL", function(.Object, nmethod_list=5:7, nsamp
     g <- g + geom_smooth(method=loess)
 
   ggsave(filename, width=11, height=4)
-  print(g)
+  return (g)
 })
 
-plot_performance_nmethods <- function(.Object, nmethod_list=5:7, nsample=20, conf.interval=.95, filename='FiDEL_perf_nmethod.pdf') {
-  df <- cal_partial_performance(.Object, nmethod_list=nmethod_list, nsample=nsample)
+plot_performance_nmethods <- function(.Object, nmethod_list=5:7, nsample=20, seed=100, method='SE', filename='FiDEL_perf_nmethod.pdf') {
+  df <- cal_partial_performance(.Object, nmethod_list=nmethod_list, nsample=nsample, seed=seed)
   df <- melt(df, id.vars = 'nmethod', variable.name='method', value.name='AUC')
 
   tmp <- df %>% group_by(nmethod, method) %>%
@@ -359,23 +359,27 @@ plot_performance_nmethods <- function(.Object, nmethod_list=5:7, nsample=20, con
     mutate(sd=sd(AUC)) %>%
     mutate(N=length(AUC))
 
-  tmp$se <- tmp$sd/sqrt(tmp$N)
-  tmp$ci <- tmp$se * qt(conf.interval/2 + .5, tmp$N-1)
+  if (method == 'SE') {
+    tmp$sd <- tmp$sd/sqrt(tmp$N)
+  }
+
+  #tmp$ci <- tmp$se * qt(conf.interval/2 + .5, tmp$N-1)
   tmp$shape <- ifelse(tmp$method == 'FiDEL', 21, 23)
 
-  g <- ggplot(tmp, aes(x=nmethod, y=Performance, color=method)) +
-    geom_line(size=2) +
-    geom_errorbar(width=.1, aes(ymin=Performance-ci, ymax=Performance+ci)) +
+  g <- ggplot(tmp, aes(x=nmethod, y=Performance)) + theme_classic() +
+    geom_line(aes(linetype=method), size=2) +
+    geom_errorbar(width=.1, aes(ymin=Performance-sd, ymax=Performance+sd)) +
     geom_point(shape=tmp$shape, size=2, fill='white') +
-    xlab('Number of methods') +
-    ylab('AUC') +
-    theme_classic()
+    xlab('Number of methods (M)') +
+    ylab('Performance (AUC)') +
+    theme(legend.position = c(0.75, 0.7))
 
   ggsave(filename, width=6, height=4)
-  print(g)
+  return (g)
 }
 
-cal_partial_performance <- function(.Object, nmethod_list=5:7, nsample=20) {
+cal_partial_performance <- function(.Object, nmethod_list=5:7, nsample=20, seed=100) {
+  set.seed(seed)
   x <- c()
   y <- c()
   n <- c()
@@ -392,7 +396,7 @@ cal_partial_performance <- function(.Object, nmethod_list=5:7, nsample=20) {
     }
   }
 
-  df <- data.table(Best_Indv=x, FiDEL=y, nmethod=n)
+  df <- data.table(FiDEL=y, Best_Indv=x, nmethod=n)
   #df$nmethod <- as.factor(df$nmethod)
 
   return(df)

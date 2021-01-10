@@ -10,6 +10,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(data.table)
 library(caret)
 library(FiDEL)
+library(devtools)
+load_all()
 ```
 
 ## Train data
@@ -42,7 +44,7 @@ t1 <- mtrainer(model_list, dataInfo = 'WestNile')
 ```
 
 ```{r}
-t1 <- train.mtrainer(t1, y~., traininglist, update=TRUE)
+t1 <- train.mtrainer(t1, y~., traininglist, update=FALSE)
 ```
 
 ```{r}
@@ -72,11 +74,20 @@ plot_cor(fde2, legend_flag=T, filename='results/WNV_cor_fde2.pdf')
 ```
 
 ```{r}
-plot_performance(fde2, nmethod_list=c(3, 5, 7), nsample=200, filename='results/WNV_perf_fde2.pdf')
+g1 <- plot_performance(fde2, nmethod_list=c(3, 5, 7), nsample=200, filename='results/WNV_perf_fde2.pdf')
+g1
 ```
 
 ```{r}
-plot_performance_nmethods(fde2, nmethod_list=3:10, nsample=200, filename='results/WNV_perf_nmethod_fde2.pdf')
+g2 <- plot_performance_nmethods(fde2, nmethod_list=3:10, nsample=200, method='STD', filename='results/WNV_perf_nmethod_fde2_STD.pdf')
+g2
+```
+
+```{r}
+library(ggpubr)
+g <- ggarrange(g1, g2, labels=c('A', 'B'), ncol=2, nrow=1, widths = c(2.7,1))
+ggsave("results/Figure4a_SE.pdf", width=15, height=3.8)
+g
 ```
 
 ```{r}
