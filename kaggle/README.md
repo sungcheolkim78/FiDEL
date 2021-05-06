@@ -1,6 +1,8 @@
 # Kaggle Competition
 
-In this folder, the examples of using FiDEL package for the Kaggle competition are saved. In general, you can download the training data for each competition in Kaggle homepage. And you can also find the initial or preliminary data preprocessing steps in `Notebooks` section. Here, we chose some of basic imputing and cleaning method for the dataset. After this process, we use the caret package to train the selected list of models. Then these models generate the AUC for the test data set and the FiDEL method creates the ensemble performace. 
+In this folder, the examples of using FiDEL package for the Kaggle competition are saved. In general, you can download the training data for each competition on the Kaggle homepage. And you can also find the initial or preliminary data preprocessing steps in the Jupiter notebook files for each data set. After some basic imputing and cleaning in this preprocessing step, we use the caret package to train the selected list of models. Then, we use the training set performance to estimate the FiDEL parameters. Finally, we apply our method, FiDEL, and compare it to the Wisdom of Crowds ensembling technique, and the best individual base classifier. The final plots for the two datasets can be found in `results/wnv_performance.pdf` and `results/slm_performance.pdf`.  
+
+As an example, we will consider the West Nile Virus Kaggle dataset and diagram a workflow. The entire analysis flow can be found in `westnile_FiDEL.R`
 
 # Data preprocessing
 
@@ -8,6 +10,8 @@ In this folder, the examples of using FiDEL package for the Kaggle competition a
 
 - You can find the jupyter notebook for the preprocessing in `kaggle-2-WestNile-data-prep.ipynb`
 - The final dataset is saved as `data/data-westnile.csv.bz2`
+
+Note that all of the custom functions used here can be found in the `FiDEL/R` directory. 
 
 Load data and remove zero variance columns
 ```{r}
@@ -25,73 +29,6 @@ testing  <- traininglist[[22]]
 testingY <- to_label(testing$y, class1='Yes')
 ```
 
-## Springleaf Marketing Response
-
-- You can find the jupyter notebook for the preprocessing in `kaggle-4-Springleaf-data-prep.ipynb`
-- The final dataset is saved as `data/data-springleaf.csv.bz2`
-
-Load data file and set the target class and remove some unnecessary columns
-```{r}
-set.seed(200)
-train <- as.data.table(readr::read_csv('data/data-springleaf.csv.bz2'))
-train$y <- ifelse(train$target == 1, 'Yes', 'No')
-train$y <- as.factor(train$y)
-train <- train[, -c('ID', 'target1', 'VAR_1427', 'VAR_0847', 'VAR_1428', 'VAR0924')]
-```
-
-Clean up train data and remove columns with missing data (NA, 99999999X, 999X, 99X)
-```{r}
-feat_names <- colnames(train[,-c('y')])
-rm_names <- c()
-
-count <- 0
-for (f in feat_names) {
-  coldata <- train[[f]]
-  if (any(coldata < 0)) {
-    #print(paste0(f, '-', min(coldata)))
-    count <- count + 1
-    rm_names <- c(rm_names, f)
-    next
-  }
-  if (any(coldata > 999999990)) {
-    #print(paste0(f, '-', max(coldata)))
-    count <- count + 1
-    rm_names <- c(rm_names, f)
-    next
-  }
-  if (sum(coldata > 9990 & coldata < 9999) > 20) {
-    #print(paste0(f, '-', max(coldata)))
-    count <- count + 1
-    rm_names <- c(rm_names, f)
-    next
-  }
-  if (sum(coldata > 990 & coldata < 999) > 20) {
-    #print(paste0(f, '-', max(coldata)))
-    count <- count + 1
-    rm_names <- c(rm_names, f)
-    next
-  }
-  if (sum(coldata > 90 & coldata < 99) > 20) {
-    #print(paste0(f, '-', max(coldata)))
-    count <- count + 1
-    rm_names <- c(rm_names, f)
-    next
-  }
-}
-
-train_new <- train[,-rm_names, with=F]
-```
-
-Divide the total data in 22 groups to train each algorithm with different data group to minimize the correlation between the trained algorithms.
-```{r}
-set.seed(200)
-
-folds <- createFolds(train_new$y, k=22, list = TRUE)
-traininglist <- lapply(folds, function(x) train_new[x, ])
-testing  <- traininglist[[22]]
-testingY <- to_label(testing$y, class1='Yes')
-```
-
 # Training the models
 
 Select model names and create multi-trainer (mtrainer) object.
@@ -99,46 +36,84 @@ Select model names and create multi-trainer (mtrainer) object.
 model_list <- c('rmda', 'rotationForest', 'pls', 'rda', 'svmLinear', 'svmRadial', 'knn', 'earth', 
           'mlp', 'rf', 'gbm', 'ctree', 'C5.0', 'bayesglm', 'glm', 'glmnet', 'simpls', 'dwdRadial', 'xgbTree', 
           'xgbLinear', 'nnet')
-t1 <- mtrainer(model_list, dataInfo = 'SpringLeaf')
+t1 <- mtrainer(model_list, dataInfo = 'westnile')
 ```
 
-Train all algorithms with list of group data sets.
+Train all algorithms with list of group data sets. Note: this may take a few minutes depending on your computing power. 
 ```{r}
 t1 <- train.mtrainer(t1, y~., traininglist, update=T)
 ```
 
-Create the prediction with all included methods and AUC list.
+We need to now calculate the performance of each base classifier on the rest of the training samples not used to learn that particular classifier. 
 ```{r}
-t1 <- predict.mtrainer(t1, newdata=testing)
-auclist <- apply(t1$predictions, 2, auc_rank, testingY)
+t2 <- predict.mtrainer.train(t1, newdata2=traininglist, class1=NULL)
+
+auclist_train <- lapply(1:21, function(x) auc_rank_train(t2$predictions[,x], traininglist, t2$nmethods, x))
+
+names(auclist_train) <- t2$model_list
+
+auclist_train <- unlist(auclist_train)
 ```
 
-# Calculating the ensemble performance (FiDEL)
+# Estimating the FiDEL parameters
 
-Without known labels, 
+Now, we need to estimate the FiDEL parameters, namely beta and mu for each of the base classifiers. We will use the training set metrics to do this. 
 ```{r}
-fde1 <- fde(t1$predictions)
-fde1 <- predict_performance(fde1, auclist, attr(testingY, 'rho'))
+fde3 <- fde(t2$predictions)
+
+entire.train <- traininglist[-22]
+nrow.train <- unlist(lapply(1:t1$nmethods, function(x) do.call(rbind, entire.train[-x]) %>% nrow()))
+
+prevalence.train <- unlist(lapply(1:t1$nmethods, function(x) do.call(rbind, entire.train[-x]) %>% as_tibble() %>% mutate(p=ifelse(as.character(y)=="Yes", 1, 0)) %>% pull(p) %>% mean()))
+
+fde4 <- predict_performance(fde3, auclist_train, prevalence.train, nrow.train)
 ```
 
-With known labels,
+# Base Classifier Performance on Test Set
+
+Let us now predict the class labels on the test set data.  
 ```{r}
-fde2 <- calculate_performance(fde1, testingY)
+t1.test <- predict.mtrainer(t1, newdata=testing)
+
+fde4@predictions <- t1.test$predictions
+
+testset.items <- fde(t1.test$predictions)
+
+fde4@rank_matrix <- testset.items@rank_matrix
+
+fde4@nsamples <- testset.items@nsamples
 ```
 
-Create plot with number of selected methods and iteration number.
+# FiDEL performance
+
+Next, let us estimate the class labels using FiDEL and the overall ensemble FiDEL performance. 
 ```{r}
-g1 <- plot_performance(fde2, nmethod_list=c(3, 5, 7), nsample=200, filename='results/SLM_perf_fde2.pdf')
+fde5 <- calculate_performance(fde4, testingY, "FiDEL")
 ```
 
-Create plot with different number of selected methods and iteration number.
+# Performance Comparison and Visualization
+
+Finally, we can visualize our performance (`wnv.overall`). And, we can compare it to two standard methods: 1) Wisdom of Crowds (WoC), 2) Best Individual Classifier
 ```{r}
-g2 <-plot_performance_nmethods(fde2, nmethod_list=3:10, nsample=200, method='SE', filename='results/SLM_perf_nmethod_fde2.pdf')
+fde.woc <- calculate_performance(fde4, testingY, "WoC")
+wnv.overall <- overall_performance(fde5, fde.woc, 3:10, 200, 100, 'SE')
 ```
 
+There are a number of downstream things we can do now:    
+
+1) compute the correlation between ranks of base classifiers of test set items
 ```{r}
-library(ggpubr)
-g <- ggarrange(g1, g2, labels=c('A', 'B'), ncol=2, nrow=1, widths = c(2.7,1))
-ggsave("results/Figure4a_SE.pdf", width=15, height=3.8)
-g
+wnv.cor <- corrank(fde5)
 ```
+
+2) Compute the empirical probability of the class given rank vector for each base classifier 
+```{r}
+wnv.pcr <- fidel.fits(t1, traininglist)
+```
+
+3) And, the analytical probability of class given rank vector for each base classifier
+```{r}
+fd.wnv <- fd.coords(fde5, wnv.pcr)
+```
+Note that by combining items 2) and 3), we can compare the analytical and empirical probability of class given rank vectors. 
+
