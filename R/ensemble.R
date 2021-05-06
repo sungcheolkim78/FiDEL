@@ -50,8 +50,12 @@ setMethod("initialize", "FiDEL", function(.Object, predictions, ...) {
   .Object@method_names <- colnames(predictions)
   names(.Object@method_names) <- colnames(predictions)
 
-  .Object@logit_matrix <- apply(predictions, 2, frankv)
-  .Object@rank_matrix <- apply(predictions, 2, frankv)
+  #if ties allowed
+  #.Object@logit_matrix <- apply(predictions, 2, frankv, ties.method="random")
+  #.Object@rank_matrix <- apply(predictions, 2, frankv, ties.method="random")
+
+  .Object@logit_matrix <- apply(predictions, 2, frankv, ties.method="random")
+  .Object@rank_matrix <- apply(predictions, 2, frankv, ties.method="random")
   .Object@estimated_label <- as.factor(c('class1', rep('class2', .Object@nsamples-1)))
 
   return(.Object)
@@ -81,37 +85,52 @@ setValidity("FiDEL", function(object) {
   }
 })
 
-setGeneric("calculate_performance", function(.Object, actual_label, alpha=1) {standardGeneric("calculate_performance")})
+setGeneric("calculate_performance", function(.Object, actual_label, ensemble_method="FiDEL", alpha=1) {standardGeneric("calculate_performance")})
 
-setMethod("calculate_performance", "FiDEL", function(.Object, actual_label, alpha=1) {
+setMethod("calculate_performance", "FiDEL", function(.Object, actual_label, ensemble_method="FiDEL", alpha=1) {
   tic(sprintf('... N:%d, M:%d', .Object@nsamples, .Object@nmethods))
   # save label data
+
   .Object@actual_label <- actual_label
 
   # calculate auc using labels
   .Object@actual_performance <- apply(.Object@predictions, 2, auc_rank, actual_label)
+
   for (i in seq_along(.Object@actual_performance)) {
     .Object@method_names[i] <- paste0(.Object@method_names[i], '\n', 'A=',
                                       round(.Object@actual_performance[i], digits=3))
   }
 
-  # calculate beta, mu and rstar
-  .Object@actual_prevalence <- attr(actual_label, 'rho')
-  b_list <- sapply(.Object@actual_performance, get_fermi, rho=.Object@actual_prevalence)
-  .Object@beta <- as.vector(b_list[1, ])
-  .Object@mu <- as.vector(b_list[2, ])
-  .Object@rstar <- as.vector(b_list[3, ])
+  .Object@actual_performance[round(.Object@actual_performance, 3)==.500] <- .501
+
+  #rescaling of fidel parameters 
+  if (ensemble_method=="FiDEL"){
+    .Object@beta <- .Object@beta / dim(.Object@predictions)[1]
+  } 
+
+  if (ensemble_method=="WoC"){
+    .Object@beta <- rep(1, length(.Object@beta))
+  }
+
+  .Object@mu <- .Object@mu * dim(.Object@predictions)[1]
+  .Object@rstar <- .Object@rstar * dim(.Object@predictions)[1]
 
   # calculate new rank scores
   colnames(.Object@logit_matrix) <- colnames(.Object@predictions)
-  .Object@logit_matrix <- apply(.Object@predictions, 2, frankv)/.Object@nsamples
+  .Object@logit_matrix <- apply(.Object@predictions, 2, frankv)
+  
   for (m in seq(1, .Object@nmethods)) {
     .Object@logit_matrix[, m] <- .Object@beta[m]^alpha *(.Object@rstar[m] - .Object@logit_matrix[, m])
   }
+
   .Object@estimated_logit <- -rowSums(.Object@logit_matrix)
-  .Object@estimated_label <- to_label(ifelse(.Object@estimated_logit >0, 'class1', 'class2'), asfactor=TRUE)
+
   .Object@estimated_prob <- 1/(1+exp(-.Object@estimated_logit))
+
+  #if ties allowed
+  #.Object@estimated_rank <- frankv(.Object@estimated_logit, ties.method='random')
   .Object@estimated_rank <- frankv(.Object@estimated_logit)
+
 
   if (ncol(.Object@rank_matrix) != ncol(.Object@predictions)) {
     .Object@rank_matrix <- .Object@rank_matrix[, -ncol(.Object@rank_matrix)]
@@ -130,10 +149,13 @@ setMethod("calculate_performance", "FiDEL", function(.Object, actual_label, alph
   return(.Object)
 })
 
-setGeneric("predict_performance", function(.Object, actual_performance, p, alpha=1) {standardGeneric("predict_performance")})
 
-setMethod("predict_performance", "FiDEL", function(.Object, actual_performance, p, alpha=1) {
+#not loading when sourcing R for some reason!!
+setGeneric("predict_performance", function(.Object, actual_performance, p, nrow.train, alpha=1) {standardGeneric("predict_performance")})
+
+setMethod("predict_performance", "FiDEL", function(.Object, actual_performance, p, nrow.train, alpha=1) {
   tic(sprintf('... N:%d, M:%d', .Object@nsamples, .Object@nmethods))
+
   # calculate auc using labels
   .Object@actual_performance <- actual_performance
   .Object@estimated_performance <- actual_performance
@@ -143,30 +165,20 @@ setMethod("predict_performance", "FiDEL", function(.Object, actual_performance, 
                                       round(.Object@actual_performance[i], digits=3))
   }
 
-  # calculate beta, mu and rstar
-  .Object@actual_prevalence <- p
-  b_list <- sapply(actual_performance, get_fermi, rho=p)
-  .Object@beta <- as.vector(b_list[1, ])
-  .Object@mu <- as.vector(b_list[2, ])
-  .Object@rstar <- as.vector(b_list[3, ])
+  #any value exactly .5 is set to .501 for numerical stability issues
+  .Object@actual_performance[round(.Object@actual_performance, 3)==.500] <- .501
 
-  # calculate new rank scores
-  colnames(.Object@logit_matrix) <- colnames(.Object@predictions)
-  .Object@logit_matrix <- apply(.Object@predictions, 2, frankv)/.Object@nsamples
-  for (m in seq(1, .Object@nmethods)) {
-    .Object@logit_matrix[, m] <- .Object@beta[m]^alpha * (.Object@rstar[m] - .Object@logit_matrix[, m] )
-  }
-  .Object@estimated_logit <- -rowMeans(.Object@logit_matrix)
-  .Object@estimated_label <- to_label(ifelse(.Object@estimated_logit > 0, 'class1', 'class2'), asfactor=TRUE)
-  .Object@estimated_prob <- 1/(1+exp(-.Object@estimated_logit))
-  .Object@estimated_rank <- frankv(.Object@estimated_logit)
-  .Object@ensemble_auc <- auc_rank(.Object@estimated_logit, .Object@estimated_label)
+  .Object@actual_prevalence <- mean(p)
 
-  if (ncol(.Object@rank_matrix) != ncol(.Object@predictions)) {
-    .Object@rank_matrix <- .Object@rank_matrix[, -ncol(.Object@rank_matrix)]
-  }
-  #colnames(.Object@rank_matrix) <- classifier_names
-  .Object@rank_matrix <- cbind(.Object@rank_matrix, A_FD=.Object@estimated_rank)
+  b_list <- unlist(lapply(1:.Object@nmethods, function(x) get_fermi(.Object@actual_performance[[x]], rho=p[x], N=1)))
+
+  b_listdataframe <- do.call(rbind, b_list %>% as.list()) %>% as.data.frame()
+  b_listdataframe$name <- rownames(b_listdataframe)
+  b_listdataframe <- b_listdataframe %>% as_tibble() 
+
+  .Object@beta <- b_listdataframe %>% as_tibble() %>% filter(grepl("beta", name)) %>% pull(V1) 
+  .Object@mu <- b_listdataframe %>% as_tibble() %>% filter(grepl("mu", name)) %>% pull(V1) 
+  .Object@rstar <- b_listdataframe %>% as_tibble() %>% filter(grepl("rs", name)) %>% pull(V1) 
 
   #cat('... Ensemble AUC:', .Object@ensemble_auc, '\n')
   cat('... AUC list:', .Object@actual_performance, '\n')
@@ -364,15 +376,16 @@ plot_performance_nmethods <- function(.Object, nmethod_list=5:7, nsample=20, see
   }
 
   #tmp$ci <- tmp$se * qt(conf.interval/2 + .5, tmp$N-1)
-  tmp$shape <- ifelse(tmp$method == 'FiDEL', 21, 23)
+  tmp$shape <- ifelse(tmp$method == 'FiDEL', "21", "23")
 
   g <- ggplot(tmp, aes(x=nmethod, y=Performance)) + theme_classic() +
-    geom_line(aes(linetype=method), size=2) +
+    geom_line(aes(linetype=method, color=method), size=2) +
     geom_errorbar(width=.1, aes(ymin=Performance-sd, ymax=Performance+sd)) +
-    geom_point(shape=tmp$shape, size=2, fill='white') +
+    geom_point(aes(shape=method), size=2, fill='white') +
     xlab('Number of methods (M)') +
     ylab('Performance (AUC)') +
-    theme(legend.position = c(0.75, 0.7))
+    theme(legend.position = c(0.75, 0.7)) + scale_color_manual(values=c("FiDEL"="black", "Best_Indv"="grey70")) + scale_shape_manual(values=c("FiDEL"=21, "Best_Indv"=23))+ labs(color  = "Method", shape = "Method") + guides(linetype=FALSE) 
+
 
   ggsave(filename, width=6, height=4)
   return (g)

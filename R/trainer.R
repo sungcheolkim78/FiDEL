@@ -106,7 +106,10 @@ caret_train <- function(method, mtrainer, formula, tr_data, n_cores) {
   flush.console()
 
   #set.seed(1024)
-  cl <- makePSOCKcluster(n_cores)
+  
+  #cl <- makePSOCKcluster(n_cores)
+
+  cl <- makeCluster(3, setup_strategy="sequential")
   registerDoParallel(cl)
   if (method %in% c('gbm', 'nnet')) {
     fit <- caret::train(formula, data=tr_data, method=method, trControl=mtrainer$control,
