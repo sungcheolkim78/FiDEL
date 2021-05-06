@@ -2,11 +2,9 @@
 
 In this folder, the examples of using FiDEL package for the Kaggle competition are saved. In general, you can download the training data for each competition on the Kaggle homepage. And you can also find the initial or preliminary data preprocessing steps in the Jupiter notebook files for each data set. After some basic imputing and cleaning in this preprocessing step, we use the caret package to train the selected list of models. Then, we use the training set performance to estimate the FiDEL parameters. Finally, we apply our method, FiDEL, and compare it to the Wisdom of Crowds ensembling technique, and the best individual base classifier. The final plots for the two datasets can be found in `results/wnv_performance.pdf` and `results/slm_performance.pdf`.  
 
-As an example, we will consider the West Nile Virus Kaggle dataset and diagram a workflow. The entire analysis flow can be found in `westnile_FiDEL.R`
+As an example, we will consider the West Nile Virus Kaggle dataset and diagram a workflow. The entire analysis flow can be found in `westnile_FiDEL.R`.  
 
 # Data preprocessing
-
-## West Nile Virus
 
 - You can find the jupyter notebook for the preprocessing in `kaggle-2-WestNile-data-prep.ipynb`
 - The final dataset is saved as `data/data-westnile.csv.bz2`
