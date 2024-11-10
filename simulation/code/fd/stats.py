@@ -62,4 +62,3 @@ def rank_2_auc(r, y):
     N = r.size
     return d/N + 0.5
 
-

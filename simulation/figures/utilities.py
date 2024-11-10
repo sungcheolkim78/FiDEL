@@ -248,5 +248,3 @@ class StatsTable:
         self._means[idx] = rep_obj.mean
         self._sem[idx] = rep_obj.sem
 
-
-

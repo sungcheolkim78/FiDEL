@@ -166,8 +166,3 @@ def data_set(auc, corr_coef, prevalence, N, seed=None):
         R[i, :] = rankdata(s[i, :], method="ordinal")
 
     return R, y
-    
-    
-    
-
-

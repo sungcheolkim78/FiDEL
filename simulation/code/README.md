@@ -13,7 +13,7 @@ Dependencies
 The package was developed and applied using:
 
 - Python          3.7.3
-- numpy           1.19.2
+- numpy           1.22.2
 - scipy           1.4.1
 - matplotlib      3.2.2
 
